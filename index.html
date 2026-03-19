@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>귤귤 | 분리형 어드민</title>
+  <link rel="stylesheet" href="./assets/css/styles.css" />
+</head>
+<body>
+  <header id="siteHeader" class="site-header"></header>
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <div id="statusBar" class="status-bar">어드민 인증을 확인하는 중입니다.</div>
+
+        <section id="adminAuthSection" class="stack">
+          <div class="auth-shell">
+            <div>
+              <span class="eyebrow">ADMIN PORTAL</span>
+              <h1 class="hero-title" style="font-size:clamp(26px,3.8vw,46px)">로그인 먼저 나오는 분리형 어드민<br>슈퍼어드민 / 강사 어드민 2단 권한</h1>
+              <p class="hero-copy">슈퍼어드민은 강사별·기수별 회원 전체를 조회하고 권한을 부여합니다. 강사 어드민은 배정된 강의(강사/기수)만 관리합니다.</p>
+              <div class="notice-box" style="margin-top:14px">처음 시작할 때는 이 페이지에서 관리자 계정을 하나 만든 뒤, Supabase SQL Editor에서 <code>select public.bootstrap_super_admin('이메일');</code> 을 한 번 실행해 첫 슈퍼어드민을 등록하세요.</div>
+            </div>
+            <div class="stack">
+              <div class="auth-card">
+                <div class="row" style="justify-content:space-between"><span class="pill orange" id="modeBadge">모드 확인 중</span><a class="btn btn-secondary small" href="#requestForm">관리자 가입 신청</a></div>
+                <h3 style="margin:14px 0 8px;font-size:20px">어드민 로그인</h3>
+                <form id="adminLoginForm" class="stack">
+                  <div class="field"><label>이메일</label><input id="adminEmail" class="input" type="email" placeholder="admin@example.com" /></div>
+                  <div class="field"><label>비밀번호</label><input id="adminPassword" class="input" type="password" placeholder="8자 이상" /></div>
+                  <button class="btn btn-primary" type="submit">로그인</button>
+                </form>
+              </div>
+              <div class="auth-card">
+                <h3 style="margin:0 0 8px;font-size:18px">첫 슈퍼어드민 계정 만들기</h3>
+                <form id="bootstrapForm" class="stack">
+                  <div class="field"><label>이름</label><input id="bootstrapName" class="input" placeholder="홍길동" /></div>
+                  <div class="field"><label>이메일</label><input id="bootstrapEmail" class="input" type="email" placeholder="admin@example.com" /></div>
+                  <div class="field"><label>비밀번호</label><input id="bootstrapPassword" class="input" type="password" placeholder="8자 이상" /></div>
+                  <button class="btn btn-secondary" type="submit">계정 만들기</button>
+                </form>
+                <div class="row" style="margin-top:10px"><button class="btn btn-ghost small" type="button" data-action="reset-demo">데모 데이터 초기화</button></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" id="requestCardPublic">
+            <div class="card-header"><h3>강사 어드민 / 운영진 가입 신청</h3><span class="pill orange">권한은 슈퍼어드민 승인 후 반영</span></div>
+            <form id="requestForm" class="stack">
+              <div class="grid-2">
+                <div class="field"><label>이름</label><input id="requestName" class="input" placeholder="홍길동" /></div>
+                <div class="field"><label>연락처</label><input id="requestPhone" class="input" placeholder="010-0000-0000" /></div>
+              </div>
+              <div class="grid-2">
+                <div class="field"><label>이메일</label><input id="requestEmail" class="input" type="email" placeholder="teacher@example.com" /></div>
+                <div class="field"><label>비밀번호</label><input id="requestPassword" class="input" type="password" placeholder="8자 이상" /></div>
+              </div>
+              <div class="grid-2">
+                <div class="field"><label>신청 권한</label><select id="requestRole" class="select"><option value="course_admin">강사 어드민</option><option value="super_admin">슈퍼어드민</option></select></div>
+                <div class="field"><label>담당 강의 / 기수</label><select id="requestCourse" class="select"></select></div>
+              </div>
+              <div class="field"><label>메모</label><textarea id="requestMemo" class="textarea" placeholder="담당 강의, 운영 목적 등을 적어두세요."></textarea></div>
+              <button class="btn btn-primary" type="submit">가입 신청</button>
+            </form>
+          </div>
+        </section>
+
+        <section id="adminAppSection" class="hidden stack">
+          <div id="scopeBox"></div>
+          <div class="stat-grid">
+            <div class="stats-card"><div class="k">COURSES</div><div class="v" id="statCourses">0</div></div>
+            <div class="stats-card"><div class="k">MEMBERS</div><div class="v" id="statMembers">0</div></div>
+            <div class="stats-card"><div class="k">SCHEDULE</div><div class="v" id="statSchedule">0</div></div>
+            <div class="stats-card"><div class="k">EVENTS</div><div class="v" id="statEvents">0</div></div>
+            <div class="stats-card"><div class="k">ASSIGNMENTS</div><div class="v" id="statAssignments">0</div></div>
+            <div class="stats-card"><div class="k">TOKENS</div><div class="v" id="statTokens">0</div></div>
+            <div class="stats-card"><div class="k">REQUESTS</div><div class="v" id="statRequests">0</div></div>
+          </div>
+
+          <div class="grid-2">
+            <div class="card" id="courseCreateCard">
+              <div class="card-header"><h3>강의 / 기수 생성</h3><span class="pill orange">슈퍼어드민 전용</span></div>
+              <form id="courseForm" class="stack">
+                <div class="grid-2">
+                  <div class="field"><label>강사명</label><input id="courseInstructor" class="input" placeholder="예: 디노" required /></div>
+                  <div class="field"><label>기수</label><input id="courseCohort" class="input" placeholder="예: 3기" required /></div>
+                </div>
+                <div class="field"><label>강의명</label><input id="courseTitle" class="input" placeholder="예: 쇼핑쇼츠 마스터반" required /></div>
+                <div class="field"><label>서브 타이틀</label><input id="courseSubtitle" class="input" placeholder="강의 한 줄 설명" /></div>
+                <div class="field"><label>설명</label><textarea id="courseDescription" class="textarea" placeholder="수강생 페이지에 노출될 설명"></textarea></div>
+                <div class="field"><label>포인트 컬러</label><input id="courseColor" class="input" type="color" value="#ff9d4d" /></div>
+                <button class="btn btn-primary" type="submit">강의/기수 생성</button>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-header"><h3>회원가입 토큰 생성</h3><span class="pill orange">강사/기수별 링크</span></div>
+              <form id="tokenForm" class="stack">
+                <div class="field"><label>강의 선택</label><select id="courseSelectToken" class="select"></select></div>
+                <div class="field"><label>토큰 이름</label><input id="tokenName" class="input" placeholder="예: 디노 3기 회원가입" /></div>
+                <div class="field"><label>토큰값(비워두면 자동 생성)</label><input id="tokenValue" class="input" placeholder="예: DINO-3-2026" /></div>
+                <div class="field"><label>안내 문구</label><textarea id="tokenMessage" class="textarea" placeholder="회원가입 화면에 보일 문구"></textarea></div>
+                <div class="grid-2">
+                  <div class="field"><label>만료 시각</label><input id="tokenExpires" class="input" type="datetime-local" /></div>
+                  <div class="field"><label>최대 사용 수</label><input id="tokenMaxUses" class="input" type="number" placeholder="비워두면 제한 없음" /></div>
+                </div>
+                <button class="btn btn-primary" type="submit">토큰 만들기</button>
+              </form>
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <div class="card">
+              <div class="card-header"><h3>강의 일정 등록</h3><span class="pill orange">라이브/오프라인</span></div>
+              <form id="scheduleForm" class="stack">
+                <div class="field"><label>강의 선택</label><select id="courseSelectSchedule" class="select"></select></div>
+                <div class="field"><label>주차</label><input id="scheduleWeek" class="input" type="number" min="1" value="1" /></div>
+                <div class="field"><label>일정 제목</label><input id="scheduleTitle" class="input" placeholder="예: 2주차 실시간 피드백" required /></div>
+                <div class="grid-2"><div class="field"><label>시작</label><input id="scheduleStart" class="input" type="datetime-local" required /></div><div class="field"><label>종료</label><input id="scheduleEnd" class="input" type="datetime-local" required /></div></div>
+                <div class="field"><label>장소/링크</label><input id="scheduleLocation" class="input" placeholder="줌 링크 또는 장소" /></div>
+                <div class="field"><label>설명</label><textarea id="scheduleDescription" class="textarea"></textarea></div>
+                <button class="btn btn-secondary" type="submit">일정 등록</button>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-header"><h3>모집 행사 등록</h3><span class="pill orange">모집중/마감/예정</span></div>
+              <form id="eventForm" class="stack">
+                <div class="field"><label>강의 선택</label><select id="courseSelectEvent" class="select"></select></div>
+                <div class="field"><label>행사 제목</label><input id="eventTitle" class="input" placeholder="예: 촬영회 추가 모집" required /></div>
+                <div class="field"><label>분류</label><select id="eventCategory" class="select"><option value="recruitment">recruitment</option><option value="scheduled">scheduled</option><option value="notice">notice</option></select></div>
+                <div class="grid-2"><div class="field"><label>모집 시작</label><input id="eventOpen" class="input" type="datetime-local" /></div><div class="field"><label>모집 마감</label><input id="eventClose" class="input" type="datetime-local" /></div></div>
+                <div class="grid-2"><div class="field"><label>행사 시작</label><input id="eventStart" class="input" type="datetime-local" /></div><div class="field"><label>행사 종료</label><input id="eventEnd" class="input" type="datetime-local" /></div></div>
+                <div class="field"><label>장소/링크</label><input id="eventLocation" class="input" /></div>
+                <div class="field"><label>신청 링크</label><input id="eventApplyUrl" class="input" placeholder="외부 폼 또는 내부 링크" /></div>
+                <div class="field"><label>설명</label><textarea id="eventDescription" class="textarea"></textarea></div>
+                <button class="btn btn-secondary" type="submit">행사 등록</button>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-header"><h3>주차별 과제 등록</h3><span class="pill orange">n주차 보드</span></div>
+              <form id="assignmentForm" class="stack">
+                <div class="field"><label>강의 선택</label><select id="courseSelectAssignment" class="select"></select></div>
+                <div class="field"><label>주차</label><input id="assignmentWeek" class="input" type="number" min="1" value="1" /></div>
+                <div class="field"><label>과제 제목</label><input id="assignmentTitle" class="input" placeholder="예: 2주차 리서치 시트 제출" required /></div>
+                <div class="field"><label>마감 시각</label><input id="assignmentDue" class="input" type="datetime-local" /></div>
+                <div class="field"><label>자료 링크</label><input id="assignmentMaterialUrl" class="input" placeholder="노션/구글드라이브 링크" /></div>
+                <div class="field"><label>설명</label><textarea id="assignmentDescription" class="textarea"></textarea></div>
+                <label class="row"><input id="assignmentRequired" type="checkbox" checked /> 필수 과제</label>
+                <button class="btn btn-secondary" type="submit">과제 등록</button>
+              </form>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="card" id="roleAssignCard">
+              <div class="card-header"><h3>어드민 권한 부여</h3><span class="pill orange">슈퍼어드민 전용</span></div>
+              <form id="roleAssignForm" class="stack">
+                <div class="field"><label>대상 이메일</label><input id="roleAssignEmail" class="input" type="email" placeholder="teacher@example.com" /></div>
+                <div class="field"><label>권한 유형</label><select id="roleType" class="select"><option value="course_admin">강사 어드민</option><option value="super_admin">슈퍼어드민</option></select></div>
+                <div class="field"><label>강의 / 기수 (강사 어드민일 때)</label><select id="roleCourseSelect" class="select"></select></div>
+                <button class="btn btn-primary" type="submit">권한 부여</button>
+              </form>
+            </div>
+            <div class="card"><div class="card-header"><h3>회원가입 링크 미리보기</h3><span class="pill orange">메인 앱 URL 필요</span></div><div id="tokenLinks" class="stack"></div></div>
+          </div>
+
+          <div class="grid-2">
+            <div class="card"><div class="card-header"><h3>강의 / 기수 목록</h3></div><div class="table-wrap"><table><thead><tr><th>강사</th><th>기수</th><th>강의명</th><th>slug</th><th>관리</th></tr></thead><tbody id="courseTable"></tbody></table></div></div>
+            <div class="card"><div class="card-header"><h3>회원 목록</h3><span class="pill orange">슈퍼어드민은 전체 조회</span></div><div class="table-wrap"><table><thead><tr><th>강의/기수</th><th>회원</th><th>역할</th><th>가입일</th></tr></thead><tbody id="memberTable"></tbody></table></div></div>
+          </div>
+
+          <div class="card"><div class="card-header"><h3>어드민 권한 목록</h3></div><div class="table-wrap"><table><thead><tr><th>계정</th><th>권한</th><th>강의/기수</th><th>생성일</th><th>관리</th></tr></thead><tbody id="roleTable"></tbody></table></div></div>
+          <div class="card"><div class="card-header"><h3>일정 목록</h3></div><div class="table-wrap"><table><thead><tr><th>강의/기수</th><th>주차</th><th>일정</th><th>시작</th><th>관리</th></tr></thead><tbody id="scheduleTable"></tbody></table></div></div>
+          <div class="card"><div class="card-header"><h3>행사 목록</h3></div><div class="table-wrap"><table><thead><tr><th>강의/기수</th><th>행사</th><th>분류</th><th>모집 시작</th><th>모집 마감</th><th>관리</th></tr></thead><tbody id="eventTable"></tbody></table></div></div>
+          <div class="card"><div class="card-header"><h3>과제 목록</h3></div><div class="table-wrap"><table><thead><tr><th>강의/기수</th><th>주차</th><th>과제</th><th>마감</th><th>관리</th></tr></thead><tbody id="assignmentTable"></tbody></table></div></div>
+          <div class="card"><div class="card-header"><h3>회원가입 토큰 목록</h3></div><div class="table-wrap"><table><thead><tr><th>강의/기수</th><th>이름</th><th>토큰</th><th>만료</th><th>관리</th></tr></thead><tbody id="tokenTable"></tbody></table></div></div>
+          <div class="card hidden" id="adminRequestCard"><div class="card-header"><h3>관리자 가입 신청 목록</h3><span class="pill orange">슈퍼어드민 검토용</span></div><div class="table-wrap"><table><thead><tr><th>이름</th><th>이메일</th><th>신청 권한</th><th>강의/기수</th><th>상태</th><th>메모</th></tr></thead><tbody id="requestTable"></tbody></table></div></div>
+        </section>
+      </div>
+    </section>
+  </main>
+  <footer id="siteFooter"></footer>
+  <script type="module" src="./assets/js/pages/admin-page.js"></script>
+</body>
+</html>
