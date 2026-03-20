@@ -77,6 +77,7 @@ function primaryToken() { return selectedTokens()[0] || null; }
 function selectedSupportLinks() { return state.supportLinks || []; }
 function eventApplications(eventId) { return (state.bootstrap?.applications || []).filter((item) => item.event_id === eventId); }
 function xlsxAvailable() { return typeof window !== 'undefined' && !!window.XLSX; }
+function normalizePhoneDigits(value=''){ return String(value||'').replace(/\D/g,''); }
 function exportRowsXlsx(filename, rows = []) {
   if (!xlsxAvailable()) { setMessage(qs('#app-message'), '엑셀 라이브러리를 불러오지 못했습니다.', 'error'); return; }
   const ws = window.XLSX.utils.json_to_sheet(rows);
@@ -437,11 +438,13 @@ function renderTokenList() {
       <div class="member-summary-actions">
         <button class="btn btn-secondary small" type="button" id="members-open-btn">회원 목록</button>
         <button class="btn btn-secondary small" type="button" id="members-export-btn">엑셀 다운로드</button>
+        <button class="btn btn-secondary small" type="button" id="member-add-open-btn">회원 수동 추가</button>
         <button class="btn btn-primary small" type="button" id="copy-signup-link-btn">가입 링크 복사</button>
       </div>
     </div>
   ` : '<div class="empty-state">강의를 선택해주세요.</div>';
   qs('#members-open-btn')?.addEventListener('click', openMembersModal);
+  qs('#member-add-open-btn')?.addEventListener('click', () => openModal('member-add-modal'));
   qs('#members-export-btn')?.addEventListener('click', () => exportRowsXlsx(`${course?.title || 'members'}_회원명단.xlsx`, members.map((item) => ({ 이름: item.full_name, 전화번호: item.phone, 등록일: formatDate(item.created_at) }))));
   qs('#copy-signup-link-btn')?.addEventListener('click', async () => {
     try {
@@ -546,8 +549,15 @@ function renderRequestsAndRoles() {
   qsa('[data-approve-request]').forEach((btn) => btn.addEventListener('click', () => resolveRequest(btn.dataset.approveRequest, 'approved')));
   qsa('[data-reject-request]').forEach((btn) => btn.addEventListener('click', () => resolveRequest(btn.dataset.rejectRequest, 'rejected')));
 
-  const roles = state.bootstrap.roles || [];
-  roleWrap.innerHTML = roles.length ? `<table><thead><tr><th>이름</th><th>연락처</th><th>권한</th><th>대상</th><th></th></tr></thead><tbody>${roles.map((item) => `<tr><td>${escapeHtml(item.full_name || '')}</td><td>${escapeHtml(item.phone || '')}</td><td>${escapeHtml(item.role_type)}</td><td>${escapeHtml(item.course_id ? (courseMap[item.course_id]?.instructor_name || '') : '전체')}</td><td class="text-right"><button class="btn btn-danger small" data-role-profile="${item.profile_id || ''}" data-role-type="${item.role_type || ''}" data-role-course="${item.course_id || ''}">삭제</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">권한 정보가 없습니다.</div>';
+  const rawRoles = state.bootstrap.roles || [];
+  const roleMap = new Map();
+  rawRoles.forEach((item) => {
+    const targetLabel = item.role_type === 'super_admin' ? '전체' : (item.target_instructor_name || (item.course_id ? (courseMap[item.course_id]?.instructor_name || '') : ''));
+    const key = `${item.profile_id || ''}|${item.role_type || ''}|${targetLabel}`;
+    if (!roleMap.has(key)) roleMap.set(key, { ...item, target_label: targetLabel });
+  });
+  const roles = Array.from(roleMap.values()).sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''), 'ko'));
+  roleWrap.innerHTML = roles.length ? `<table><thead><tr><th>이름</th><th>연락처</th><th>권한</th><th>대상</th><th></th></tr></thead><tbody>${roles.map((item) => `<tr><td>${escapeHtml(item.full_name || '')}</td><td>${escapeHtml(item.phone || '')}</td><td>${escapeHtml(item.role_type)}</td><td>${escapeHtml(item.target_label || (item.course_id ? (courseMap[item.course_id]?.instructor_name || '') : '전체'))}</td><td class="text-right"><button class="btn btn-danger small" data-role-profile="${item.profile_id || ''}" data-role-type="${item.role_type || ''}" data-role-course="${item.course_id || ''}">삭제</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">권한 정보가 없습니다.</div>';
   qsa('[data-role-profile]').forEach((btn) => btn.addEventListener('click', async () => {
     if (!confirm('이 권한을 삭제하시겠습니까?')) return;
     try {
@@ -825,9 +835,10 @@ function bindForms() {
     e.preventDefault();
     try {
       const form = e.currentTarget;
-      const res = await api.upsertMember(state.sessionToken, state.selectedCourseId, form.full_name.value.trim(), form.phone.value.trim());
+      const res = await api.upsertMember(state.sessionToken, state.selectedCourseId, form.full_name.value.trim(), normalizePhoneDigits(form.phone.value));
       if (!res?.ok) throw new Error(res?.message || '회원 추가에 실패했습니다.');
       form.reset();
+      closeModal('member-add-modal');
       await refreshBootstrap();
     } catch (err) { setMessage(qs('#app-message'), err.message || '회원 추가에 실패했습니다.', 'error'); }
   });
@@ -870,7 +881,7 @@ function bindForms() {
       if (!res?.ok) throw new Error(res?.message || '고객센터 저장에 실패했습니다.');
       resetSupportForm();
       await refreshSupportLinks();
-    } catch (err) { setMessage(qs('#app-message'), err.message || '고객센터 저장에 실패했습니다.', 'error'); }
+    } catch (err) { const raw = String(err?.message || err || ''); const msg = raw.includes('app_admin_save_support_link') ? '고객센터 저장 함수가 아직 서버에 없습니다. 최신 SQL 패치를 실행한 뒤 다시 시도해주세요.' : (raw || '고객센터 저장에 실패했습니다.'); setMessage(qs('#app-message'), msg, 'error'); }
   });
 
   qs('#add-question-btn')?.addEventListener('click', () => { state.eventQuestions.push(emptyChoiceQuestion()); renderQuestionBuilder(); });
@@ -888,17 +899,17 @@ function bindForms() {
 
   qs('#open-course-modal')?.addEventListener('click', () => { resetCourseForm(); openCourseModal(); });
   qs('#close-course-modal')?.addEventListener('click', closeCourseModal);
-  ['course-modal','responses-modal','members-modal','schedule-modal','event-modal','assignment-modal','support-modal','roles-modal'].forEach((id) => {
+  ['course-modal','responses-modal','members-modal','member-add-modal','schedule-modal','event-modal','assignment-modal','support-modal','roles-modal'].forEach((id) => {
     qs(`#${id}`)?.addEventListener('click', (e) => { if (e.target.id === id) closeModal(id); });
   });
   qs('#close-responses-modal')?.addEventListener('click', closeResponsesModal);
   qs('#close-members-modal')?.addEventListener('click', closeMembersModal);
-  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { ['course-modal','responses-modal','members-modal','schedule-modal','event-modal','assignment-modal','support-modal','roles-modal'].forEach(closeModal); } });
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { ['course-modal','responses-modal','members-modal','member-add-modal','schedule-modal','event-modal','assignment-modal','support-modal','roles-modal'].forEach(closeModal); } });
 
   qs('#signout-btn')?.addEventListener('click', async () => {
     try { await api.signOut(state.sessionToken); } catch {}
     clearSession(sessionKey); state.sessionToken = ''; state.bootstrap = null;
-    ['course-modal','responses-modal','members-modal','schedule-modal','event-modal','assignment-modal','support-modal','roles-modal'].forEach(closeModal);
+    ['course-modal','responses-modal','members-modal','member-add-modal','schedule-modal','event-modal','assignment-modal','support-modal','roles-modal'].forEach(closeModal);
     qs('#app-main').hidden = true; qs('#app-nav').hidden = true; qs('#auth-section').hidden = false;
   });
 }
@@ -906,7 +917,6 @@ function bindForms() {
 async function init() {
   ensureTitle();
   bindForms();
-  initSidebarToggle();
   await initAuth();
   const saved = loadSession(sessionKey);
   if (saved) {

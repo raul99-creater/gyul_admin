@@ -280,3 +280,7 @@ button{cursor:pointer}
 .member-summary-actions{justify-content:flex-end}
 .member-preview-list,.member-preview-item,.member-preview-more,.empty-inline{display:none!important}
 @media (max-width:1080px){.sidebar.collapsed{width:auto}.sidebar.collapsed .folder-card-head strong,.sidebar.collapsed .folder-tree,.sidebar.collapsed .settings-card{display:initial}}
+
+.folder-plus-wrap{display:flex;justify-content:center;margin:8px 0 14px}
+.folder-plus-wrap .icon-btn.centered{margin:0 auto;font-weight:900}
+.settings-card{margin-top:2px}
