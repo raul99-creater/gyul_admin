@@ -686,12 +686,6 @@ function bindForms() {
       await refreshBootstrap();
     } catch (err) { setMessage(qs('#app-message'), err.message || '저장에 실패했습니다.', 'error'); }
   });
-      if (!res?.ok) throw new Error(res?.message || '저장에 실패했습니다.');
-      form.reset(); state.editingTokenId = '';
-      await refreshBootstrap();
-    } catch (err) { setMessage(qs('#app-message'), err.message || '저장에 실패했습니다.', 'error'); }
-  });
-
   qs('#member-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
