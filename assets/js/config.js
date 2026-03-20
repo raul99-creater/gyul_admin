@@ -5,6 +5,6 @@ export const APP_CONFIG = {
   siteName: '귤귤 일정관리',
   siteBasePath: '',
   appType: 'admin',
-  adminAppUrl: '',
-  mainAppUrl: 'https://YOUR-MAIN-PROJECT.vercel.app',
+  adminAppUrl: 'https://gyul-admin.vercel.app/',
+  mainAppUrl: 'https://gyul-main.vercel.app/',
 };
