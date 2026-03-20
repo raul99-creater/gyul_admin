@@ -208,7 +208,7 @@ button{cursor:pointer}
 
 .folder-card-head.vertical{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:10px}
 .folder-card-head.vertical strong{text-align:left}
-.icon-btn.centered{align-self:center;font-weight:700;font-size:18px}
+.icon-btn.centered{align-self:center;font-weight:800;font-size:20px;min-width:48px;height:40px}
 .member-summary-card{display:flex;flex-direction:column;gap:12px;padding:16px;border:1px solid var(--line);border-radius:18px;background:var(--brand-faint);margin-bottom:14px}
 .member-summary-top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
 .member-total{display:flex;flex-direction:column;gap:4px}
@@ -232,3 +232,5 @@ button{cursor:pointer}
 .legend-dot.applied{background:#177245}
 .legend-dot.upcoming{background:#0f5cc0}
 @media (max-width:900px){.responses-layout{grid-template-columns:1fr}.responses-list{border-right:none;border-bottom:1px solid #f0dfcd;padding-right:0;padding-bottom:12px;max-height:none}.responses-detail{max-height:none}}
+
+.member-summary-card .notice-box{display:none}

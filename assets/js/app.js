@@ -360,7 +360,6 @@ function renderTokenList() {
         <button class="btn btn-primary small" type="button" id="copy-signup-link-btn">가입 링크 복사</button>
       </div>
     </div>
-    <div class="notice-box">${token ? `현재 가입 링크가 연결되어 있습니다.` : '아직 가입 링크가 없습니다. 복사 버튼을 누르면 자동으로 생성됩니다.'}</div>
   ` : '<div class="empty-state">강의를 선택해주세요.</div>';
   qs('#members-open-btn')?.addEventListener('click', openMembersModal);
   qs('#members-export-btn')?.addEventListener('click', () => exportRowsXlsx(`${course?.title || 'members'}_회원명단.xlsx`, members.map((item) => ({ 이름: item.full_name, 전화번호: item.phone, 등록일: formatDate(item.created_at) }))));
@@ -369,7 +368,7 @@ function renderTokenList() {
       const current = await ensureSignupLink();
       const signupUrl = buildSignupUrl(current.token);
       await navigator.clipboard.writeText(signupUrl);
-      setMessage(qs('#app-message'), '가입 링크를 복사했습니다. mainAppUrl이 실제 메인 주소인지 확인해주세요.');
+      setMessage(qs('#app-message'), '가입 링크를 복사했습니다.');
     } catch (err) {
       setMessage(qs('#app-message'), err.message || '가입 링크 복사에 실패했습니다.', 'error');
     }
