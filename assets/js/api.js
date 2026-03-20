@@ -36,7 +36,10 @@ export const api = {
   saveAssignment(sessionToken, payload) { return rpc('app_admin_save_assignment', { p_session_token: sessionToken, p_item: payload }); },
   saveEvent(sessionToken, payload) { return rpc('app_admin_save_event', { p_session_token: sessionToken, p_item: payload }); },
   saveToken(sessionToken, payload) { return rpc('app_admin_save_token', { p_session_token: sessionToken, p_item: payload }); },
+  listSupportLinks(sessionToken, courseId) { return rpc('app_admin_list_support_links', { p_session_token: sessionToken, p_course_id: courseId }); },
+  saveSupportLink(sessionToken, payload) { return rpc('app_admin_save_support_link', { p_session_token: sessionToken, p_item: payload }); },
   deleteItem(sessionToken, kind, id) { return rpc('app_admin_delete_item', { p_session_token: sessionToken, p_kind: kind, p_id: id }); },
+  deleteMembership(sessionToken, courseId, profileId) { return rpc('app_admin_delete_membership', { p_session_token: sessionToken, p_course_id: courseId, p_profile_id: profileId }); },
   upsertMember(sessionToken, courseId, fullName, phone) {
     return rpc('app_admin_upsert_member', {
       p_session_token: sessionToken,

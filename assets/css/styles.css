@@ -257,3 +257,26 @@ button{cursor:pointer}
 .member-preview-item span{font-size:12px;color:#8f6a48}
 .member-preview-more,.empty-inline{font-size:12px;color:#8f6a48;padding:4px 2px}
 @media (max-width:1080px){.feature-grid{grid-template-columns:1fr}.feature-modal-card,.feature-modal-card.wide{width:min(100%,100%)}}
+
+.request-section{margin:14px 0 10px}
+.section-mini-head{display:flex;align-items:center;justify-content:space-between;margin:6px 0 8px}
+.section-mini-head strong{font-size:12px;color:#8a5c33}
+.support-link-card{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px;border:1px solid var(--line);border-radius:16px;background:#fff}
+.support-link-card .meta{display:grid;gap:4px}
+.support-link-card .meta strong{font-size:13px;color:#5f3b20}
+.support-link-card .meta small{font-size:11px;color:#8f6a48;word-break:break-all}
+.support-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+.sidebar-tools-card{padding:10px 12px}
+.sidebar-toggle-btn{width:100%;justify-content:center;font-weight:700}
+.sidebar.collapsed{width:88px}
+.sidebar.collapsed .folder-card,.sidebar.collapsed .settings-card{padding:12px}
+.sidebar.collapsed .folder-card-head strong,.sidebar.collapsed .folder-tree,.sidebar.collapsed .settings-card{display:none}
+.sidebar.collapsed .folder-card{display:flex;justify-content:center;align-items:center;min-height:72px}
+.folder-card-head.vertical{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px}
+.folder-card-head.vertical strong{text-align:center;width:100%;font-weight:700}
+.icon-btn.centered{align-self:center;margin-inline:auto;display:inline-flex;justify-content:center;align-items:center;font-weight:900;font-size:22px;min-width:52px;height:42px;padding-bottom:2px}
+.member-summary-card{padding:18px}
+.member-summary-actions{justify-content:flex-end}
+.member-preview-list,.member-preview-item,.member-preview-more,.empty-inline{display:none!important}
+@media (max-width:1080px){.sidebar.collapsed{width:auto}.sidebar.collapsed .folder-card-head strong,.sidebar.collapsed .folder-tree,.sidebar.collapsed .settings-card{display:initial}}
