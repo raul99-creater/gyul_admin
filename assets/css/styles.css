@@ -234,3 +234,26 @@ button{cursor:pointer}
 @media (max-width:900px){.responses-layout{grid-template-columns:1fr}.responses-list{border-right:none;border-bottom:1px solid #f0dfcd;padding-right:0;padding-bottom:12px;max-height:none}.responses-detail{max-height:none}}
 
 .member-summary-card .notice-box{display:none}
+
+.primary-members-card{border:1px solid var(--line);background:#fff}
+.feature-hub-card{padding:18px 18px 20px}
+.feature-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.feature-tile{display:flex;flex-direction:column;gap:8px;align-items:flex-start;justify-content:flex-start;padding:18px;border:1px solid var(--line);border-radius:18px;background:#fff;text-align:left;min-height:126px;transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease}
+.feature-tile:hover{transform:translateY(-1px);box-shadow:var(--shadow-soft);border-color:#efc59f}
+.feature-tile-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;width:100%}
+.feature-tile-label{font-size:15px;font-weight:800;color:#5f3b20;letter-spacing:-.03em}
+.feature-count{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 10px;border-radius:999px;background:var(--brand-faint);color:#b16421;font-size:12px;font-weight:800}
+.feature-tile-desc{font-size:12px;line-height:1.55;color:#8f6a48}
+.feature-modal-card{width:min(1120px,100%);max-height:calc(100vh - 44px);overflow:auto}
+.feature-modal-card.wide{width:min(1220px,100%)}
+.modal-inner-card{padding:16px;background:#fff}
+.settings-card .settings-button-list{display:flex;flex-direction:column;gap:10px}
+.settings-side-btn{width:100%;justify-content:center;font-weight:800}
+.folder-card-head.vertical strong{text-align:center}
+.icon-btn.centered{align-self:center;font-weight:900;font-size:22px;min-width:52px;height:42px;padding-bottom:2px}
+.member-preview-list{display:grid;gap:8px;margin-top:4px}
+.member-preview-item{display:flex;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid #f2dfcc;border-radius:14px;background:#fff}
+.member-preview-item strong{font-size:12px;color:#5f3b20}
+.member-preview-item span{font-size:12px;color:#8f6a48}
+.member-preview-more,.empty-inline{font-size:12px;color:#8f6a48;padding:4px 2px}
+@media (max-width:1080px){.feature-grid{grid-template-columns:1fr}.feature-modal-card,.feature-modal-card.wide{width:min(100%,100%)}}

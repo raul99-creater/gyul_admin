@@ -95,6 +95,12 @@ async function ensureSignupLink() {
 }
 function closeResponsesModal() { const modal = qs('#responses-modal'); if (modal) modal.hidden = true; }
 function closeMembersModal() { const modal = qs('#members-modal'); if (modal) modal.hidden = true; }
+function openModal(id) { const modal = qs(`#${id}`); if (modal) modal.hidden = false; }
+function closeModal(id) { const modal = qs(`#${id}`); if (modal) modal.hidden = true; }
+function wireFeatureModals() {
+  qsa('[data-open-modal]').forEach((btn) => btn.addEventListener('click', () => openModal(btn.dataset.openModal)));
+  qsa('[data-close-modal]').forEach((btn) => btn.addEventListener('click', () => closeModal(btn.dataset.closeModal)));
+}
 function openMembersModal() {
   const modal = qs('#members-modal');
   const title = qs('#members-modal-title');
@@ -303,6 +309,29 @@ function renderStats() {
   `;
 }
 
+function renderFeatureGrid() {
+  const wrap = qs('#feature-grid');
+  if (!wrap) return;
+  const scheduleCount = scoped(state.bootstrap?.schedule || []).length;
+  const eventCount = scoped(state.bootstrap?.events || []).length;
+  const assignmentCount = scoped(state.bootstrap?.assignments || []).length;
+  const items = [
+    { id: 'schedule-modal', label: '정규 일정', count: scheduleCount, desc: '정규 수업 일정을 관리합니다.' },
+    { id: 'event-modal', label: '행사 신청서', count: eventCount, desc: '행사 모집과 응답을 관리합니다.' },
+    { id: 'assignment-modal', label: '과제', count: assignmentCount, desc: '주차별 과제를 관리합니다.' }
+  ];
+  wrap.innerHTML = items.map((item) => `
+    <button class="feature-tile" type="button" data-open-modal="${item.id}">
+      <span class="feature-tile-top">
+        <span class="feature-tile-label">${item.label}</span>
+        <span class="feature-count">${item.count}</span>
+      </span>
+      <span class="feature-tile-desc">${item.desc}</span>
+    </button>
+  `).join('');
+  wireFeatureModals();
+}
+
 function renderCourseList() {
   const wrap = qs('#course-list-table');
   if (!wrap) return;
@@ -347,7 +376,7 @@ function renderTokenList() {
   const course = getSelectedCourse();
   const members = selectedMembers();
   const token = primaryToken();
-  const link = token ? buildSignupUrl(token.token) : '';
+  const preview = members.slice(0, 5);
   wrap.innerHTML = course ? `
     <div class="member-summary-top">
       <div class="member-total">
@@ -359,6 +388,10 @@ function renderTokenList() {
         <button class="btn btn-secondary small" type="button" id="members-export-btn">엑셀 다운로드</button>
         <button class="btn btn-primary small" type="button" id="copy-signup-link-btn">가입 링크 복사</button>
       </div>
+    </div>
+    <div class="member-preview-list">
+      ${preview.length ? preview.map((item) => `<div class="member-preview-item"><strong>${escapeHtml(item.full_name)}</strong><span>${escapeHtml(item.phone)}</span></div>`).join('') : '<div class="empty-inline">등록된 회원이 없습니다.</div>'}
+      ${members.length > 5 ? `<div class="member-preview-more">외 ${members.length - 5}명</div>` : ''}
     </div>
   ` : '<div class="empty-state">강의를 선택해주세요.</div>';
   qs('#members-open-btn')?.addEventListener('click', openMembersModal);
@@ -418,7 +451,14 @@ function renderRequestsAndRoles() {
   const requestWrap = qs('#request-list-table');
   const roleWrap = qs('#role-list-table');
   const superSection = qs('#super-only');
-  if (!state.bootstrap?.is_super_admin) { superSection.hidden = true; return; }
+  const sidebarSettings = qs('#sidebar-admin-settings');
+  const rolesButton = qs('#open-roles-modal');
+  const isSuper = !!state.bootstrap?.is_super_admin;
+  if (sidebarSettings) sidebarSettings.hidden = !isSuper;
+  if (rolesButton) {
+    rolesButton.onclick = () => { if (isSuper) openModal('roles-modal'); };
+  }
+  if (!isSuper) { if (superSection) superSection.hidden = true; closeModal('roles-modal'); return; }
   superSection.hidden = false;
   const courseMap = Object.fromEntries((state.bootstrap.courses || []).map((course) => [course.id, course]));
   const requests = state.bootstrap.requests || [];
@@ -543,6 +583,7 @@ function paintApp() {
   renderAssignmentList();
   renderEventList();
   renderMembers();
+  renderFeatureGrid();
   renderRequestsAndRoles();
 }
 
@@ -735,16 +776,17 @@ function bindForms() {
 
   qs('#open-course-modal')?.addEventListener('click', () => { resetCourseForm(); openCourseModal(); });
   qs('#close-course-modal')?.addEventListener('click', closeCourseModal);
-  qs('#course-modal')?.addEventListener('click', (e) => { if (e.target.id === 'course-modal') closeCourseModal(); });
-  qs('#responses-modal')?.addEventListener('click', (e) => { if (e.target.id === 'responses-modal') closeResponsesModal(); });
-  qs('#members-modal')?.addEventListener('click', (e) => { if (e.target.id === 'members-modal') closeMembersModal(); });
+  ['course-modal','responses-modal','members-modal','schedule-modal','event-modal','assignment-modal','roles-modal'].forEach((id) => {
+    qs(`#${id}`)?.addEventListener('click', (e) => { if (e.target.id === id) closeModal(id); });
+  });
   qs('#close-responses-modal')?.addEventListener('click', closeResponsesModal);
   qs('#close-members-modal')?.addEventListener('click', closeMembersModal);
-  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeCourseModal(); closeResponsesModal(); closeMembersModal(); } });
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { ['course-modal','responses-modal','members-modal','schedule-modal','event-modal','assignment-modal','roles-modal'].forEach(closeModal); } });
 
   qs('#signout-btn')?.addEventListener('click', async () => {
     try { await api.signOut(state.sessionToken); } catch {}
     clearSession(sessionKey); state.sessionToken = ''; state.bootstrap = null;
+    ['course-modal','responses-modal','members-modal','schedule-modal','event-modal','assignment-modal','roles-modal'].forEach(closeModal);
     qs('#app-main').hidden = true; qs('#app-nav').hidden = true; qs('#auth-section').hidden = false;
   });
 }
