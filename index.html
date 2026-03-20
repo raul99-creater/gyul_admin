@@ -43,7 +43,7 @@
           <form id="admin-signup-form" class="stack auth-form">
             <div class="field"><label>이름</label><input class="input" name="full_name" /></div>
             <div class="field"><label>전화번호</label><input class="input" name="phone" inputmode="numeric" /></div>
-            <div class="field"><label>담당 강의</label><select class="select" id="request-course-id" name="requested_course_id" required></select></div>
+            <div class="field"><label>담당 강사</label><select class="select" id="request-instructor-id" name="requested_course_id" required></select></div>
             <div class="field"><label>메모</label><textarea class="textarea compact" name="memo"></textarea></div>
             <div class="auth-actions-grid single">
               <button class="btn btn-primary auth-submit" type="submit">회원가입</button>
@@ -57,28 +57,18 @@
   <main class="section" id="app-main" hidden>
     <div class="container layout">
       <aside class="sidebar">
-        <section class="menu-card">
-          <div id="course-tabs" class="course-tabs"></div>
+        <section class="menu-card folder-card">
+          <div class="folder-card-head">
+            <strong>강사 폴더</strong>
+            <button class="btn btn-primary small icon-btn" id="open-course-modal" type="button" hidden>+</button>
+          </div>
+          <div id="course-tabs" class="folder-tree"></div>
         </section>
       </aside>
       <section class="main">
         <div id="app-message" class="status-bar hidden"></div>
         <section id="stats" class="stat-grid"></section>
         <section id="overview-card"></section>
-
-        <section class="card" id="super-course-create">
-          <div class="card-header"><div><h3>강의 / 기수</h3></div></div>
-          <form id="course-form" class="stack">
-            <div class="inline-form">
-              <div class="field"><label>강의명</label><input class="input" name="title" /></div>
-              <div class="field"><label>강사명</label><input class="input" name="instructor_name" /></div>
-              <div class="field"><label>기수</label><input class="input" name="cohort_label" /></div>
-              <div class="field"><label>설명</label><input class="input" name="description" /></div>
-            </div>
-            <button class="btn btn-primary" type="submit">저장</button>
-          </form>
-          <div class="table-wrap" id="course-list-table"></div>
-        </section>
 
         <section class="card">
           <div class="card-header"><div><h3>일정</h3></div></div>
@@ -132,16 +122,15 @@
         </section>
 
         <section class="card">
-          <div class="card-header"><div><h3>회원가입 토큰</h3></div></div>
+          <div class="card-header"><div><h3>회원가입 링크</h3></div></div>
           <form id="token-form" class="stack">
-            <div class="inline-form">
-              <div class="field"><label>토큰명</label><input class="input" name="token_name" /></div>
-              <div class="field"><label>토큰값</label><input class="input" name="token" /></div>
+            <div class="inline-form inline-3">
+              <div class="field"><label>링크명</label><input class="input" name="token_name" placeholder="기본 가입 링크" /></div>
               <div class="field"><label>최대 인원</label><input class="input" name="max_uses" /></div>
               <div class="field"><label>만료</label><input class="input" type="datetime-local" name="expires_at" /></div>
             </div>
             <div class="field"><label>가입 안내</label><input class="input" name="welcome_message" /></div>
-            <button class="btn btn-primary" type="submit">토큰 저장</button>
+            <button class="btn btn-primary" type="submit">가입 링크 생성</button>
           </form>
           <div class="grid" id="token-list"></div>
         </section>
@@ -164,7 +153,7 @@
             <div class="inline-form inline-3">
               <div class="field"><label>회원</label><select class="select" id="role-profile-id" name="profile_id"></select></div>
               <div class="field"><label>권한</label><select class="select" name="role_type"><option value="course_admin">강사 admin</option><option value="super_admin">슈퍼어드민</option></select></div>
-              <div class="field"><label>강의</label><select class="select" id="role-course-id" name="course_id"></select></div>
+              <div class="field"><label>기준 강의</label><select class="select" id="role-course-id" name="course_id"></select></div>
             </div>
             <button class="btn btn-primary" type="submit">권한 부여</button>
           </form>
@@ -174,6 +163,21 @@
       </section>
     </div>
   </main>
+
+  <div class="modal" id="course-modal" hidden>
+    <div class="modal-card course-modal-card">
+      <div class="card-header modal-head"><div><h3>강의 / 기수 추가</h3><p class="muted">강사명과 기수만 입력하면 강의명이 자동으로 생성됩니다.</p></div><button class="btn btn-secondary small" id="close-course-modal" type="button">닫기</button></div>
+      <form id="course-form" class="stack course-modal-form">
+        <div class="inline-form inline-3">
+          <div class="field"><label>강사명</label><input class="input" name="instructor_name" /></div>
+          <div class="field"><label>기수</label><input class="input" name="cohort_label" placeholder="10 또는 10기" /></div>
+          <div class="field"><label>설명</label><input class="input" name="description" /></div>
+        </div>
+        <button class="btn btn-primary" type="submit">저장</button>
+      </form>
+      <div class="table-wrap" id="course-list-table"></div>
+    </div>
+  </div>
 
   <script type="module" src="assets/js/app.js"></script>
 </body>

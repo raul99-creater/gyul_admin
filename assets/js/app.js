@@ -1,6 +1,6 @@
 import { APP_CONFIG } from './config.js';
 import { api } from './api.js';
-import { qs, qsa, escapeHtml, formatDateTime, formatDate, eventBucket, setMessage, saveSession, loadSession, clearSession } from './utils.js';
+import { qs, qsa, escapeHtml, formatDateTime, formatDate, eventBucket, setMessage, saveSession, loadSession, clearSession, groupBy } from './utils.js';
 
 const sessionKey = APP_CONFIG.sessionStorageKey;
 const state = {
@@ -33,6 +33,51 @@ function mapAuthError(err) {
   return raw || '요청에 실패했습니다.';
 }
 
+function formatCohortLabel(value = '') {
+  const v = String(value || '').trim();
+  if (!v) return '';
+  return /기$/.test(v) ? v : `${v}기`;
+}
+
+function buildCourseTitle(instructorName = '', cohortLabel = '') {
+  const name = String(instructorName || '').trim();
+  const cohort = formatCohortLabel(cohortLabel);
+  return [name, cohort].filter(Boolean).join(' ').trim();
+}
+
+function buildSignupUrl(token = '') {
+  const base = String(APP_CONFIG.mainAppUrl || '').replace(/\/$/, '');
+  return base ? `${base}/signup.html?token=${token}` : `signup.html?token=${token}`;
+}
+
+function instructorGroups(list = []) {
+  return Object.entries(groupBy(list, (item) => item.instructor_name || '기타')).sort((a, b) => a[0].localeCompare(b[0], 'ko'));
+}
+
+function getSelectedCourse() {
+  return (state.bootstrap?.courses || []).find((c) => c.id === state.selectedCourseId) || null;
+}
+
+function scoped(list = []) {
+  return list.filter((item) => !state.selectedCourseId || item.course_id === state.selectedCourseId);
+}
+
+function openCourseModal() {
+  const modal = qs('#course-modal');
+  if (modal) modal.hidden = false;
+}
+
+function closeCourseModal() {
+  const modal = qs('#course-modal');
+  if (modal) modal.hidden = true;
+}
+
+function resetCourseForm() {
+  state.editingCourseId = '';
+  const form = qs('#course-form');
+  form?.reset();
+}
+
 function resetEventBuilder(questions = []) {
   state.eventQuestions = JSON.parse(JSON.stringify(questions || []));
   renderQuestionBuilder();
@@ -40,7 +85,7 @@ function resetEventBuilder(questions = []) {
 
 function emptyChoiceQuestion() {
   return {
-    id: `q_${Date.now()}_${Math.random().toString(16).slice(2,6)}`,
+    id: `q_${Date.now()}_${Math.random().toString(16).slice(2, 6)}`,
     type: 'choice',
     label: '',
     required: true,
@@ -89,22 +134,16 @@ function renderQuestionBuilder() {
   qsa('[data-q-index]').forEach((card) => {
     const qIndex = Number(card.dataset.qIndex);
     qsa('[data-q-field]', card).forEach((input) => {
-      input.addEventListener('input', () => {
+      const sync = () => {
         const field = input.dataset.qField;
         state.eventQuestions[qIndex][field] = input.type === 'checkbox' ? input.checked : input.value;
         if (field === 'type') {
           if (input.value === 'choice' && !state.eventQuestions[qIndex].options) state.eventQuestions[qIndex].options = [{ value: '', label: '', limit: '' }];
           renderQuestionBuilder();
         }
-      });
-      input.addEventListener('change', () => {
-        const field = input.dataset.qField;
-        state.eventQuestions[qIndex][field] = input.type === 'checkbox' ? input.checked : input.value;
-        if (field === 'type') {
-          if (input.value === 'choice' && !state.eventQuestions[qIndex].options) state.eventQuestions[qIndex].options = [{ value: '', label: '', limit: '' }];
-          renderQuestionBuilder();
-        }
-      });
+      };
+      input.addEventListener('input', sync);
+      input.addEventListener('change', sync);
     });
     qsa('[data-opt-index]', card).forEach((row) => {
       const optIdx = Number(row.dataset.optIndex);
@@ -121,6 +160,7 @@ function renderQuestionBuilder() {
       });
     });
   });
+
   qsa('[data-remove-question]').forEach((btn) => btn.addEventListener('click', () => {
     state.eventQuestions.splice(Number(btn.dataset.removeQuestion), 1);
     renderQuestionBuilder();
@@ -136,31 +176,37 @@ function renderQuestionBuilder() {
   }));
 }
 
-function getSelectedCourse() {
-  return (state.bootstrap?.courses || []).find((c) => c.id === state.selectedCourseId) || null;
-}
-
-function scoped(list = []) {
-  return list.filter((item) => !state.selectedCourseId || item.course_id === state.selectedCourseId);
-}
-
 function renderCourseTabs() {
   const tabs = qs('#course-tabs');
+  const addButton = qs('#open-course-modal');
   if (!tabs) return;
   const courses = state.bootstrap?.courses || [];
+  if (addButton) addButton.hidden = !state.bootstrap?.is_super_admin;
   if (!courses.length) {
-    tabs.innerHTML = '<div class="empty-state">강의가 없습니다.</div>';
+    tabs.innerHTML = '<div class="empty-state">등록된 강의가 없습니다.</div>';
     return;
   }
-  tabs.innerHTML = courses.map((course) => `<button class="course-tab ${course.id === state.selectedCourseId ? 'active' : ''}" data-course="${course.id}">${escapeHtml(course.instructor_name)} ${escapeHtml(course.cohort_label)}</button>`).join('');
-  qsa('[data-course]', tabs).forEach((btn) => btn.addEventListener('click', () => { state.selectedCourseId = btn.dataset.course; paintApp(); }));
+  tabs.innerHTML = instructorGroups(courses).map(([instructor, items]) => `
+    <section class="folder-group">
+      <div class="folder-title">${escapeHtml(instructor)}</div>
+      <div class="folder-items">
+        ${items.map((course) => `<button class="course-tab ${course.id === state.selectedCourseId ? 'active' : ''}" data-course="${course.id}">${escapeHtml(formatCohortLabel(course.cohort_label))}</button>`).join('')}
+      </div>
+    </section>
+  `).join('');
+  qsa('[data-course]', tabs).forEach((btn) => btn.addEventListener('click', () => {
+    state.selectedCourseId = btn.dataset.course;
+    paintApp();
+  }));
 }
 
 function renderOverview() {
   const course = getSelectedCourse();
-  qs('#overview-card').innerHTML = course ? `
+  const target = qs('#overview-card');
+  if (!target) return;
+  target.innerHTML = course ? `
     <div class="card">
-      <div class="card-header"><div><h3>${escapeHtml(course.title)}</h3><p>${escapeHtml(course.instructor_name)} · ${escapeHtml(course.cohort_label)}</p></div><span class="pill orange">${escapeHtml(course.status || 'active')}</span></div>
+      <div class="card-header"><div><h3>${escapeHtml(buildCourseTitle(course.instructor_name, course.cohort_label))}</h3><p>${escapeHtml(course.instructor_name)} · ${escapeHtml(formatCohortLabel(course.cohort_label))}</p></div><span class="pill orange">${escapeHtml(course.status || 'active')}</span></div>
       <p>${escapeHtml(course.description || '')}</p>
     </div>
   ` : '<div class="empty-state">선택된 강의가 없습니다.</div>';
@@ -168,9 +214,9 @@ function renderOverview() {
 
 function renderStats() {
   const courses = state.bootstrap?.courses || [];
-  const memberships = state.bootstrap?.memberships || [];
-  const events = state.bootstrap?.events || [];
-  const assignments = state.bootstrap?.assignments || [];
+  const memberships = scoped(state.bootstrap?.memberships || []);
+  const events = scoped(state.bootstrap?.events || []);
+  const assignments = scoped(state.bootstrap?.assignments || []);
   qs('#stats').innerHTML = `
     <div class="stats-card"><div class="k">강의</div><div class="v">${courses.length}</div></div>
     <div class="stats-card"><div class="k">회원</div><div class="v">${memberships.length}</div></div>
@@ -181,15 +227,16 @@ function renderStats() {
 
 function renderCourseList() {
   const wrap = qs('#course-list-table');
+  if (!wrap) return;
   const courses = state.bootstrap?.courses || [];
   wrap.innerHTML = courses.length ? `
     <table><thead><tr><th>강사</th><th>기수</th><th>강의명</th><th>회원</th><th></th></tr></thead><tbody>
       ${courses.map((course) => `<tr>
         <td>${escapeHtml(course.instructor_name)}</td>
-        <td>${escapeHtml(course.cohort_label)}</td>
+        <td>${escapeHtml(formatCohortLabel(course.cohort_label))}</td>
         <td>${escapeHtml(course.title)}</td>
         <td>${course.member_count || 0}</td>
-        <td class="text-right">${state.bootstrap.is_super_admin ? `<button class="btn btn-secondary small" data-edit-course="${course.id}">수정</button> <button class="btn btn-danger small" data-delete-course="${course.id}">삭제</button>` : ''}</td>
+        <td class="text-right"><button class="btn btn-secondary small" data-edit-course="${course.id}">수정</button> <button class="btn btn-danger small" data-delete-course="${course.id}">삭제</button></td>
       </tr>`).join('')}
     </tbody></table>` : '<div class="empty-state">등록된 강의가 없습니다.</div>';
   qsa('[data-edit-course]').forEach((btn) => btn.addEventListener('click', () => fillCourseForm(btn.dataset.editCourse)));
@@ -219,11 +266,24 @@ function renderAssignmentList() {
 function renderTokenList() {
   const wrap = qs('#token-list');
   const list = scoped(state.bootstrap?.tokens || []);
-  wrap.innerHTML = list.length ? list.map((item) => `
-    <article class="card"><div class="card-header"><div><h4>${escapeHtml(item.token_name)}</h4><p><code>${escapeHtml(item.token)}</code></p></div><div class="row"><button class="btn btn-secondary small" data-edit-token="${item.id}">수정</button><button class="btn btn-danger small" data-delete-token="${item.id}">삭제</button></div></div><div class="kv-list"><div class="kv-row"><strong>사용</strong><span>${item.used_count}${item.max_uses ? ` / ${item.max_uses}` : ''}</span></div><div class="kv-row"><strong>가입 링크</strong><span style="word-break:break-all">${escapeHtml(`${APP_CONFIG.mainAppUrl || ''}/signup.html?token=${item.token}`)}</span></div></div></article>
-  `).join('') : '<div class="empty-state">등록된 토큰이 없습니다.</div>';
+  wrap.innerHTML = list.length ? list.map((item) => {
+    const link = buildSignupUrl(item.token);
+    return `
+      <article class="card">
+        <div class="card-header"><div><h4>${escapeHtml(item.token_name || '기본 가입 링크')}</h4><p>${escapeHtml(getSelectedCourse()?.title || '')}</p></div><div class="row"><button class="btn btn-secondary small" data-copy-link="${escapeHtml(link)}">링크 복사</button><button class="btn btn-secondary small" data-edit-token="${item.id}">수정</button><button class="btn btn-danger small" data-delete-token="${item.id}">삭제</button></div></div>
+        <div class="kv-list"><div class="kv-row"><strong>사용</strong><span>${item.used_count}${item.max_uses ? ` / ${item.max_uses}` : ''}</span></div><div class="kv-row"><strong>가입 링크</strong><span style="word-break:break-all">${escapeHtml(link)}</span></div></div>
+      </article>`;
+  }).join('') : '<div class="empty-state">생성된 가입 링크가 없습니다.</div>';
   qsa('[data-edit-token]').forEach((btn) => btn.addEventListener('click', () => fillTokenForm(btn.dataset.editToken)));
   qsa('[data-delete-token]').forEach((btn) => btn.addEventListener('click', () => removeItem('token', btn.dataset.deleteToken)));
+  qsa('[data-copy-link]').forEach((btn) => btn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(btn.dataset.copyLink);
+      setMessage(qs('#app-message'), '가입 링크를 복사했습니다.');
+    } catch {
+      setMessage(qs('#app-message'), '링크 복사에 실패했습니다.', 'error');
+    }
+  }));
 }
 
 function renderEventList() {
@@ -259,18 +319,22 @@ function renderRequestsAndRoles() {
   const superSection = qs('#super-only');
   if (!state.bootstrap?.is_super_admin) { superSection.hidden = true; return; }
   superSection.hidden = false;
+  const courseMap = Object.fromEntries((state.bootstrap.courses || []).map((course) => [course.id, course]));
   const requests = state.bootstrap.requests || [];
-  requestWrap.innerHTML = requests.length ? `<table><thead><tr><th>이름</th><th>연락처</th><th>강의</th><th>상태</th><th></th></tr></thead><tbody>${requests.map((item) => `<tr><td>${escapeHtml(item.full_name)}</td><td>${escapeHtml(item.phone)}</td><td>${escapeHtml((state.bootstrap.courses.find(c => c.id === item.requested_course_id)?.title) || '')}</td><td>${escapeHtml(item.status)}</td><td class="text-right">${item.status === 'pending' ? `<button class="btn btn-primary small" data-approve-request="${item.id}">승인</button> <button class="btn btn-secondary small" data-reject-request="${item.id}">반려</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">신청 내역이 없습니다.</div>';
+  requestWrap.innerHTML = requests.length ? `<table><thead><tr><th>이름</th><th>연락처</th><th>담당 강사</th><th>상태</th><th></th></tr></thead><tbody>${requests.map((item) => {
+    const reqCourse = courseMap[item.requested_course_id] || null;
+    return `<tr><td>${escapeHtml(item.full_name)}</td><td>${escapeHtml(item.phone)}</td><td>${escapeHtml(reqCourse?.instructor_name || '')}</td><td>${escapeHtml(item.status)}</td><td class="text-right">${item.status === 'pending' ? `<button class="btn btn-primary small" data-approve-request="${item.id}">승인</button> <button class="btn btn-secondary small" data-reject-request="${item.id}">반려</button>` : ''}</td></tr>`;
+  }).join('')}</tbody></table>` : '<div class="empty-state">신청 내역이 없습니다.</div>';
   qsa('[data-approve-request]').forEach((btn) => btn.addEventListener('click', () => resolveRequest(btn.dataset.approveRequest, 'approved')));
   qsa('[data-reject-request]').forEach((btn) => btn.addEventListener('click', () => resolveRequest(btn.dataset.rejectRequest, 'rejected')));
 
   const roles = state.bootstrap.roles || [];
-  roleWrap.innerHTML = roles.length ? `<table><thead><tr><th>이름</th><th>연락처</th><th>권한</th><th>강의</th></tr></thead><tbody>${roles.map((item) => `<tr><td>${escapeHtml(item.full_name || '')}</td><td>${escapeHtml(item.phone || '')}</td><td>${escapeHtml(item.role_type)}</td><td>${escapeHtml((state.bootstrap.courses.find(c => c.id === item.course_id)?.title) || '전체')}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">권한 정보가 없습니다.</div>';
+  roleWrap.innerHTML = roles.length ? `<table><thead><tr><th>이름</th><th>연락처</th><th>권한</th><th>대상</th></tr></thead><tbody>${roles.map((item) => `<tr><td>${escapeHtml(item.full_name || '')}</td><td>${escapeHtml(item.phone || '')}</td><td>${escapeHtml(item.role_type)}</td><td>${escapeHtml(courseMap[item.course_id]?.instructor_name || '전체')}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">권한 정보가 없습니다.</div>';
 
   const profileSelect = qs('#role-profile-id');
   const courseSelect = qs('#role-course-id');
   if (profileSelect) profileSelect.innerHTML = `<option value="">회원 선택</option>${(state.bootstrap.profiles || []).map((p) => `<option value="${p.id}">${escapeHtml(p.full_name)} · ${escapeHtml(p.phone)}</option>`).join('')}`;
-  if (courseSelect) courseSelect.innerHTML = `<option value="">전체</option>${(state.bootstrap.courses || []).map((c) => `<option value="${c.id}">${escapeHtml(c.title)} · ${escapeHtml(c.cohort_label)}</option>`).join('')}`;
+  if (courseSelect) courseSelect.innerHTML = `<option value="">전체</option>${(state.bootstrap.courses || []).map((c) => `<option value="${c.id}">${escapeHtml(c.instructor_name)} · ${escapeHtml(formatCohortLabel(c.cohort_label))}</option>`).join('')}`;
 }
 
 function fillCourseForm(id) {
@@ -278,11 +342,12 @@ function fillCourseForm(id) {
   if (!item) return;
   state.editingCourseId = id;
   const form = qs('#course-form');
-  form.querySelector('[name="title"]').value = item.title || '';
   form.querySelector('[name="instructor_name"]').value = item.instructor_name || '';
   form.querySelector('[name="cohort_label"]').value = item.cohort_label || '';
   form.querySelector('[name="description"]').value = item.description || '';
+  openCourseModal();
 }
+
 function fillScheduleForm(id) {
   const item = (state.bootstrap?.schedule || []).find((c) => c.id === id);
   if (!item) return;
@@ -290,10 +355,11 @@ function fillScheduleForm(id) {
   const form = qs('#schedule-form');
   form.querySelector('[name="title"]').value = item.title || '';
   form.querySelector('[name="location"]').value = item.location || '';
-  form.querySelector('[name="starts_at"]').value = (item.starts_at || '').slice(0,16);
-  form.querySelector('[name="ends_at"]').value = (item.ends_at || '').slice(0,16);
+  form.querySelector('[name="starts_at"]').value = (item.starts_at || '').slice(0, 16);
+  form.querySelector('[name="ends_at"]').value = (item.ends_at || '').slice(0, 16);
   form.querySelector('[name="description"]').value = item.description || '';
 }
+
 function fillAssignmentForm(id) {
   const item = (state.bootstrap?.assignments || []).find((c) => c.id === id);
   if (!item) return;
@@ -301,33 +367,34 @@ function fillAssignmentForm(id) {
   const form = qs('#assignment-form');
   form.querySelector('[name="week_no"]').value = item.week_no || 1;
   form.querySelector('[name="title"]').value = item.title || '';
-  form.querySelector('[name="due_at"]').value = (item.due_at || '').slice(0,16);
+  form.querySelector('[name="due_at"]').value = (item.due_at || '').slice(0, 16);
   form.querySelector('[name="link_url"]').value = item.link_url || '';
   form.querySelector('[name="description"]').value = item.description || '';
 }
+
 function fillEventForm(id) {
   const item = (state.bootstrap?.events || []).find((c) => c.id === id);
   if (!item) return;
   state.editingEventId = id;
   const form = qs('#event-form');
   form.querySelector('[name="title"]').value = item.title || '';
-  form.querySelector('[name="starts_at"]').value = (item.starts_at || '').slice(0,16);
-  form.querySelector('[name="ends_at"]').value = (item.ends_at || '').slice(0,16);
-  form.querySelector('[name="registration_open_at"]').value = (item.registration_open_at || '').slice(0,16);
-  form.querySelector('[name="registration_close_at"]').value = (item.registration_close_at || '').slice(0,16);
+  form.querySelector('[name="starts_at"]').value = (item.starts_at || '').slice(0, 16);
+  form.querySelector('[name="ends_at"]').value = (item.ends_at || '').slice(0, 16);
+  form.querySelector('[name="registration_open_at"]').value = (item.registration_open_at || '').slice(0, 16);
+  form.querySelector('[name="registration_close_at"]').value = (item.registration_close_at || '').slice(0, 16);
   form.querySelector('[name="max_applicants"]').value = item.max_applicants || '';
   form.querySelector('[name="description"]').value = item.description || '';
   resetEventBuilder(item.form_schema || []);
 }
+
 function fillTokenForm(id) {
   const item = (state.bootstrap?.tokens || []).find((c) => c.id === id);
   if (!item) return;
   state.editingTokenId = id;
   const form = qs('#token-form');
   form.querySelector('[name="token_name"]').value = item.token_name || '';
-  form.querySelector('[name="token"]').value = item.token || '';
   form.querySelector('[name="max_uses"]').value = item.max_uses || '';
-  form.querySelector('[name="expires_at"]').value = (item.expires_at || '').slice(0,16);
+  form.querySelector('[name="expires_at"]').value = (item.expires_at || '').slice(0, 16);
   form.querySelector('[name="welcome_message"]').value = item.welcome_message || '';
 }
 
@@ -356,7 +423,7 @@ function paintApp() {
   qs('#auth-section').hidden = true;
   qs('#app-main').hidden = false;
   qs('#app-nav').hidden = false;
-  qs('#admin-name').textContent = state.bootstrap?.profile?.full_name || (state.bootstrap?.is_super_admin ? '슈퍼어드민' : '관리자');
+  qs('#admin-name').textContent = state.bootstrap?.is_super_admin ? '슈퍼어드민' : (state.bootstrap?.profile?.full_name || '관리자');
   renderStats();
   renderCourseTabs();
   renderOverview();
@@ -367,19 +434,14 @@ function paintApp() {
   renderTokenList();
   renderMembers();
   renderRequestsAndRoles();
-  if (!state.bootstrap?.is_super_admin) {
-    qs('#super-course-create').hidden = true;
-  } else {
-    qs('#super-course-create').hidden = false;
-  }
 }
 
 async function refreshBootstrap() {
   const res = await api.getBootstrap(state.sessionToken);
   if (!res?.ok) throw new Error(res?.message || '데이터를 불러오지 못했습니다.');
   state.bootstrap = res;
-  if (!state.selectedCourseId) state.selectedCourseId = res.courses?.[0]?.id || '';
-  if (!res.is_super_admin && res.courses?.length === 1) state.selectedCourseId = res.courses[0].id;
+  const courseIds = (res.courses || []).map((course) => course.id);
+  if (!courseIds.includes(state.selectedCourseId)) state.selectedCourseId = courseIds[0] || '';
   paintApp();
 }
 
@@ -389,14 +451,15 @@ async function initAuth() {
   const loginMsg = qs('#login-message');
   const signupMsg = qs('#signup-message');
   const signupPanel = qs('#signup-panel');
-  const select = qs('#request-course-id');
+  const select = qs('#request-instructor-id');
 
   async function loadCoursesForSignup() {
     if (state.publicCourses.length) return;
     try {
       const courses = await api.listCourses();
       state.publicCourses = Array.isArray(courses) ? courses : [];
-      if (select) select.innerHTML = `<option value="">강의 선택</option>${state.publicCourses.map((c) => `<option value="${c.id}">${escapeHtml(c.title)} · ${escapeHtml(c.instructor_name)} ${escapeHtml(c.cohort_label)}</option>`).join('')}`;
+      const firstByInstructor = instructorGroups(state.publicCourses).map(([name, items]) => ({ name, id: items[0]?.id }));
+      if (select) select.innerHTML = `<option value="">강사 선택</option>${firstByInstructor.map((item) => `<option value="${item.id}">${escapeHtml(item.name)}</option>`).join('')}`;
     } catch (err) {
       const msg = mapAuthError(err);
       if (select) select.innerHTML = '<option value="">불러오지 못함</option>';
@@ -454,21 +517,27 @@ function bindForms() {
     e.preventDefault();
     try {
       const form = e.currentTarget;
+      const instructor = form.instructor_name.value.trim();
+      const cohort = form.cohort_label.value.trim();
       const payload = {
         id: state.editingCourseId || null,
-        title: form.title.value.trim(),
-        instructor_name: form.instructor_name.value.trim(),
-        cohort_label: form.cohort_label.value.trim(),
+        title: buildCourseTitle(instructor, cohort),
+        instructor_name: instructor,
+        cohort_label: cohort,
         description: form.description.value.trim(),
         status: 'active',
         is_visible: true
       };
       const res = await api.saveCourse(state.sessionToken, payload);
       if (!res?.ok) throw new Error(res?.message || '저장에 실패했습니다.');
-      form.reset(); state.editingCourseId = '';
+      resetCourseForm();
       await refreshBootstrap();
-    } catch (err) { setMessage(qs('#app-message'), err.message || '저장에 실패했습니다.', 'error'); }
+      closeCourseModal();
+    } catch (err) {
+      setMessage(qs('#app-message'), err.message || '저장에 실패했습니다.', 'error');
+    }
   });
+
   qs('#schedule-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
@@ -487,6 +556,7 @@ function bindForms() {
       await refreshBootstrap();
     } catch (err) { setMessage(qs('#app-message'), err.message || '저장에 실패했습니다.', 'error'); }
   });
+
   qs('#assignment-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
@@ -505,6 +575,7 @@ function bindForms() {
       await refreshBootstrap();
     } catch (err) { setMessage(qs('#app-message'), err.message || '저장에 실패했습니다.', 'error'); }
   });
+
   qs('#token-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
@@ -513,7 +584,6 @@ function bindForms() {
         id: state.editingTokenId || null,
         course_id: state.selectedCourseId,
         token_name: form.token_name.value.trim(),
-        token: form.token.value.trim(),
         max_uses: form.max_uses.value,
         expires_at: form.expires_at.value,
         welcome_message: form.welcome_message.value.trim(),
@@ -524,6 +594,7 @@ function bindForms() {
       await refreshBootstrap();
     } catch (err) { setMessage(qs('#app-message'), err.message || '저장에 실패했습니다.', 'error'); }
   });
+
   qs('#member-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
@@ -534,6 +605,7 @@ function bindForms() {
       await refreshBootstrap();
     } catch (err) { setMessage(qs('#app-message'), err.message || '회원 추가에 실패했습니다.', 'error'); }
   });
+
   qs('#event-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
@@ -557,7 +629,9 @@ function bindForms() {
       await refreshBootstrap();
     } catch (err) { setMessage(qs('#app-message'), err.message || '행사 저장에 실패했습니다.', 'error'); }
   });
+
   qs('#add-question-btn')?.addEventListener('click', () => { state.eventQuestions.push(emptyChoiceQuestion()); renderQuestionBuilder(); });
+
   qs('#role-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
@@ -568,6 +642,12 @@ function bindForms() {
       await refreshBootstrap();
     } catch (err) { setMessage(qs('#app-message'), err.message || '권한 부여에 실패했습니다.', 'error'); }
   });
+
+  qs('#open-course-modal')?.addEventListener('click', () => { resetCourseForm(); openCourseModal(); });
+  qs('#close-course-modal')?.addEventListener('click', closeCourseModal);
+  qs('#course-modal')?.addEventListener('click', (e) => { if (e.target.id === 'course-modal') closeCourseModal(); });
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCourseModal(); });
+
   qs('#signout-btn')?.addEventListener('click', async () => {
     try { await api.signOut(state.sessionToken); } catch {}
     clearSession(sessionKey); state.sessionToken = ''; state.bootstrap = null;
