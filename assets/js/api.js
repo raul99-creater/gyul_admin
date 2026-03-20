@@ -61,5 +61,13 @@ export const api = {
       p_course_id: courseId || null
     });
   },
+  deleteRole(sessionToken, profileId, roleType, courseId) {
+    return rpc('app_admin_delete_role', {
+      p_session_token: sessionToken,
+      p_profile_id: profileId,
+      p_role_type: roleType,
+      p_course_id: courseId || null
+    });
+  },
   signOut(sessionToken) { return rpc('app_sign_out', { p_session_token: sessionToken }); }
 };
