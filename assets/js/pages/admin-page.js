@@ -97,7 +97,7 @@ function renderTables() {
     <div class="token-preview">
       <strong>${escapeHtml(row.token_name || resolveCourseTitle(row.course_id))}</strong>
       <div class="muted" style="margin-top:6px">${escapeHtml(resolveCourseTitle(row.course_id))} 회원가입 링크</div>
-      <code>${mainBase ? `${mainBase.replace(/\/$/, '')}/signup.html?token=${encodeURIComponent(row.token)}` : `메인 앱 URL 설정 후 표시됩니다. token=${escapeHtml(row.token)}`}</code>
+      <code>${mainBase ? `${mainBase.replace(/\/$/, '')}/signup.html?token=${encodeURIComponent(row.token)}` : `token=${escapeHtml(row.token)}`}</code>
     </div>`).join('') : '<div class="empty-state">생성된 토큰이 없습니다.</div>';
   document.getElementById('tokenLinks').querySelectorAll('code').forEach((code) => { code.style.display = 'block'; code.style.marginTop = '8px'; code.style.wordBreak = 'break-all'; });
 
@@ -299,7 +299,7 @@ document.getElementById('eventForm').addEventListener('submit', submitEvent);
 document.getElementById('assignmentForm').addEventListener('submit', submitAssignment);
 document.getElementById('tokenForm').addEventListener('submit', submitToken);
 document.getElementById('roleAssignForm').addEventListener('submit', submitRoleAssign);
-document.querySelector('[data-action="reset-demo"]').addEventListener('click', () => { resetDemoData(); setStatus('데모 데이터를 초기화했습니다. 다시 로그인하세요.', 'ok'); });
+document.querySelector('[data-action="reset-demo"]').addEventListener('click', () => { resetDemoData(); setStatus('초기화했습니다.', 'ok'); });
 
 await refreshAdmin();
 const existing = await getSession();

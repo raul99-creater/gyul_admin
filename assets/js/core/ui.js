@@ -1,6 +1,6 @@
 import { APP_CONFIG } from '../config.js';
 import { escapeHtml } from './utils.js';
-import { getModeLabel, signOut } from './service.js';
+import { signOut } from './service.js';
 
 function resolveHref(path) {
   const base = APP_CONFIG.siteBasePath || '';
@@ -15,31 +15,30 @@ export function renderHeader(active = '') {
   const adminUrl = APP_CONFIG.adminAppUrl || '#';
   const nav = isAdmin
     ? `
-      <a href="${resolveHref('/index.html')}" class="${active === 'admin' ? 'active' : ''}">어드민</a>
-      <a href="${mainUrl}" ${APP_CONFIG.mainAppUrl ? '' : 'aria-disabled="true"'}>메인 포털</a>
+      <a href="${resolveHref('/index.html')}" class="${active === 'admin' ? 'active' : ''}">관리</a>
+      ${APP_CONFIG.mainAppUrl ? `<a href="${mainUrl}">메인</a>` : ''}
     `
     : `
       <a href="${resolveHref('/index.html')}" class="${active === 'home' ? 'active' : ''}">로그인</a>
-      <a href="${resolveHref('/dashboard.html')}" class="${active === 'dashboard' ? 'active' : ''}">내 강의</a>
-      <a href="${resolveHref('/signup.html')}" class="${active === 'signup' ? 'active' : ''}">토큰 회원가입</a>
+      <a href="${resolveHref('/dashboard.html')}" class="${active === 'dashboard' ? 'active' : ''}">내 일정</a>
+      <a href="${resolveHref('/signup.html')}" class="${active === 'signup' ? 'active' : ''}">회원가입</a>
       ${APP_CONFIG.adminAppUrl ? `<a href="${adminUrl}">어드민</a>` : ''}
     `;
   header.innerHTML = `
     <div class="container nav-wrap">
       <a class="brand" href="${resolveHref('/index.html')}">
         <span class="brand-mark" aria-hidden="true"></span>
-        <span class="brand-text">${escapeHtml(APP_CONFIG.siteName || '귤귤')}</span>
+        <span class="brand-text">${escapeHtml(APP_CONFIG.siteName || '귤귤 일정관리')}</span>
       </a>
       <nav class="site-nav">${nav}</nav>
-      <div class="nav-actions"><span class="pill orange">${escapeHtml(getModeLabel())}</span></div>
+      <div class="nav-actions"></div>
     </div>`;
 }
 
 export function renderFooter() {
   const footer = document.getElementById('siteFooter');
   if (!footer) return;
-  const label = APP_CONFIG.appType === 'admin' ? '분리형 어드민' : '회원 포털';
-  footer.innerHTML = `<div class="container"><div class="footer">${escapeHtml(APP_CONFIG.siteName || '귤귤')} · ${label} · Vercel + Supabase</div></div>`;
+  footer.innerHTML = `<div class="container"><div class="footer">${escapeHtml(APP_CONFIG.siteName || '귤귤 일정관리')}</div></div>`;
 }
 
 export function setStatus(message, type = '') {

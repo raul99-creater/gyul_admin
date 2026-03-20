@@ -95,9 +95,9 @@ button{cursor:pointer}
 .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:28px;align-items:center}
 .eyebrow{display:inline-flex;align-items:center;padding:8px 14px;border-radius:999px;background:var(--brand-soft);color:#b16421;font-size:11px;font-weight:700;letter-spacing:.08em}
 .hero-title,.section-title{margin:14px 0 12px;line-height:1.14;letter-spacing:-.045em}
-.hero-title{font-size:clamp(30px,4.2vw,56px)}
-.section-title{font-size:clamp(22px,2.8vw,34px)}
-.hero-copy,.section-copy{font-size:15px;color:var(--muted);max-width:620px}
+.hero-title{
+  margin:0;
+  font-size:clamp(28px,3.5vw,44px);color:var(--muted);max-width:620px}
 .hero-shell,.panel,.card,.image-frame,.stats-card,.calendar-shell,.auth-shell,.table-wrap, .token-box{
   border:1px solid var(--line);background:rgba(255,255,255,.92);box-shadow:var(--shadow);border-radius:var(--radius-xl)
 }
@@ -197,3 +197,5 @@ button{cursor:pointer}
 .hero-course p{margin:0 0 14px;color:#6c5237;line-height:1.65}
 .table-wrap code{font-size:12px;background:#fff7ef;border:1px solid #f2dcc6;padding:2px 6px;border-radius:8px}
 .hidden{display:none !important}
+
+.notice-box, .hero-copy, .hero-mini, .eyebrow:empty {display:none;}
