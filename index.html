@@ -17,32 +17,39 @@
     </div>
   </header>
 
-  <main class="section" id="auth-section">
-    <div class="container">
-      <section class="auth-shell">
-        <div class="stack" style="justify-content:center">
-          <span class="pill orange">ADMIN</span>
-          <h1 class="hero-title">귤귤 일정관리</h1>
+  <main class="section auth-page" id="auth-section">
+    <div class="container auth-container">
+      <section class="auth-stack-card">
+        <div class="auth-stack-header">
+          <h1 class="auth-title">관리자 로그인</h1>
+          <p class="auth-subtitle">관리자 ID와 비밀번호를 입력해주세요.</p>
         </div>
-        <div class="auth-card stack">
-          <div id="login-message" class="status-bar hidden"></div>
-          <form id="admin-login-form" class="stack">
-            <div class="field"><label>아이디 또는 이름</label><input class="input" name="login" /></div>
-            <div class="field"><label>비밀번호 또는 전화번호</label><input class="input" name="secret" /></div>
-            <button class="btn btn-primary" type="submit">로그인</button>
-            <button class="btn btn-secondary" id="toggle-signup" type="button">회원가입</button>
+        <div id="login-message" class="status-bar hidden"></div>
+        <form id="admin-login-form" class="stack auth-form">
+          <div class="field"><label>아이디</label><input class="input" name="login" autocomplete="username" /></div>
+          <div class="field"><label>비밀번호</label><input class="input" name="secret" type="password" autocomplete="current-password" /></div>
+          <button class="btn btn-primary auth-submit" type="submit">로그인</button>
+          <div class="auth-actions-grid">
+            <button class="btn btn-secondary auth-alt" id="toggle-signup" type="button">가입하기</button>
+            <button class="btn btn-secondary auth-alt" id="bootstrap-hint-btn" type="button">최초등록하기</button>
+          </div>
+        </form>
+        <section id="signup-panel" hidden>
+          <div class="auth-stack-divider"></div>
+          <div class="auth-stack-header signup-head">
+            <h2 class="auth-title sub">강사 admin 신청</h2>
+          </div>
+          <div id="signup-message" class="status-bar hidden"></div>
+          <form id="admin-signup-form" class="stack auth-form">
+            <div class="field"><label>이름</label><input class="input" name="full_name" /></div>
+            <div class="field"><label>전화번호</label><input class="input" name="phone" inputmode="numeric" /></div>
+            <div class="field"><label>담당 강의</label><select class="select" id="request-course-id" name="requested_course_id" required></select></div>
+            <div class="field"><label>메모</label><textarea class="textarea compact" name="memo"></textarea></div>
+            <div class="auth-actions-grid single">
+              <button class="btn btn-primary auth-submit" type="submit">회원가입</button>
+            </div>
           </form>
-          <section id="signup-panel" hidden>
-            <div id="signup-message" class="status-bar hidden"></div>
-            <form id="admin-signup-form" class="stack">
-              <div class="field"><label>이름</label><input class="input" name="full_name" /></div>
-              <div class="field"><label>전화번호</label><input class="input" name="phone" /></div>
-              <div class="field"><label>담당 강의</label><select class="select" id="request-course-id" name="requested_course_id" required></select></div>
-              <div class="field"><label>메모</label><textarea class="textarea" name="memo"></textarea></div>
-              <button class="btn btn-primary" type="submit">강사 admin 신청</button>
-            </form>
-          </section>
-        </div>
+        </section>
       </section>
     </div>
   </main>

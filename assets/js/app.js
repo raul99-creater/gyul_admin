@@ -21,6 +21,18 @@ function ensureTitle() {
   qsa('[data-site-name]').forEach((el) => { el.textContent = APP_CONFIG.siteName; });
 }
 
+function mapAuthError(err) {
+  const raw = String(err?.message || err || '').trim();
+  const msg = raw.toLowerCase();
+  if (msg.includes('invalid api key') || msg.includes('apikey') || msg.includes('invalid jwt')) {
+    return 'Supabase API 키가 올바르지 않습니다. Settings > API에서 anon 또는 publishable key를 다시 넣어주세요.';
+  }
+  if (msg.includes('failed to fetch') || msg.includes('network')) {
+    return '서버에 연결하지 못했습니다. Vercel 주소, CORS, 인터넷 연결을 확인해주세요.';
+  }
+  return raw || '요청에 실패했습니다.';
+}
+
 function resetEventBuilder(questions = []) {
   state.eventQuestions = JSON.parse(JSON.stringify(questions || []));
   renderQuestionBuilder();
@@ -376,11 +388,33 @@ async function initAuth() {
   const signupForm = qs('#admin-signup-form');
   const loginMsg = qs('#login-message');
   const signupMsg = qs('#signup-message');
-  const courses = await api.listCourses().catch(() => []);
-  state.publicCourses = Array.isArray(courses) ? courses : [];
+  const signupPanel = qs('#signup-panel');
   const select = qs('#request-course-id');
-  if (select) select.innerHTML = `<option value="">강의 선택</option>${state.publicCourses.map((c) => `<option value="${c.id}">${escapeHtml(c.title)} · ${escapeHtml(c.instructor_name)} ${escapeHtml(c.cohort_label)}</option>`).join('')}`;
-  qs('#toggle-signup')?.addEventListener('click', () => { qs('#signup-panel').hidden = !qs('#signup-panel').hidden; });
+
+  async function loadCoursesForSignup() {
+    if (state.publicCourses.length) return;
+    try {
+      const courses = await api.listCourses();
+      state.publicCourses = Array.isArray(courses) ? courses : [];
+      if (select) select.innerHTML = `<option value="">강의 선택</option>${state.publicCourses.map((c) => `<option value="${c.id}">${escapeHtml(c.title)} · ${escapeHtml(c.instructor_name)} ${escapeHtml(c.cohort_label)}</option>`).join('')}`;
+    } catch (err) {
+      const msg = mapAuthError(err);
+      if (select) select.innerHTML = '<option value="">불러오지 못함</option>';
+      setMessage(signupMsg, msg, 'error');
+      throw err;
+    }
+  }
+
+  qs('#toggle-signup')?.addEventListener('click', async () => {
+    signupPanel.hidden = !signupPanel.hidden;
+    if (!signupPanel.hidden) {
+      setMessage(signupMsg, '');
+      try { await loadCoursesForSignup(); } catch {}
+    }
+  });
+  qs('#bootstrap-hint-btn')?.addEventListener('click', () => {
+    setMessage(loginMsg, '최초 슈퍼어드민은 서버 SQL에서 수동 등록 후 로그인하세요.', '');
+  });
   loginForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     setMessage(loginMsg, '');
@@ -393,7 +427,7 @@ async function initAuth() {
       saveSession(sessionKey, state.sessionToken);
       await refreshBootstrap();
     } catch (err) {
-      setMessage(loginMsg, err.message || '로그인에 실패했습니다.', 'error');
+      setMessage(loginMsg, mapAuthError(err), 'error');
     }
   });
   signupForm?.addEventListener('submit', async (e) => {
@@ -410,7 +444,7 @@ async function initAuth() {
       signupForm.reset();
       setMessage(signupMsg, res.message || '신청이 완료되었습니다.');
     } catch (err) {
-      setMessage(signupMsg, err.message || '신청에 실패했습니다.', 'error');
+      setMessage(signupMsg, mapAuthError(err), 'error');
     }
   });
 }
