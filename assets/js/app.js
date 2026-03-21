@@ -1102,7 +1102,7 @@ function bindForms() {
         renderSupportList();
       }
       setMessage(qs('#app-message'), wasEditing ? '고객센터 항목을 수정했습니다.' : '고객센터 항목을 저장했습니다.');
-    } catch (err) { const raw = String(err?.message || err || ''); const msg = raw.includes('app_admin_save_support_link') ? '고객센터 저장 함수가 아직 서버에 없습니다. 최신 SQL 패치를 실행한 뒤 다시 시도해주세요.' : (raw || '고객센터 저장에 실패했습니다.'); setMessage(qs('#app-message'), msg, 'error'); }
+    } catch (err) { const raw = String(err?.message || err || ''); const msg = raw || '고객센터 저장에 실패했습니다.'; setMessage(qs('#app-message'), msg, 'error'); }
   });
 
   qs('#add-question-btn')?.addEventListener('click', () => { state.eventQuestions.push(emptyChoiceQuestion()); renderQuestionBuilder(); });

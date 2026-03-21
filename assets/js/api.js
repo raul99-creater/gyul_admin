@@ -19,6 +19,59 @@ async function rpc(name, params = {}) {
   return data;
 }
 
+
+async function supportTableSelect(courseId) {
+  const supabase = await getSupabase();
+  const { data, error } = await supabase
+    .from('course_support_links')
+    .select('*')
+    .eq('course_id', courseId)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map((row) => ({
+    ...row,
+    label: row.label || row.title || row.name || row.item || '',
+    title: row.title || row.label || row.name || row.item || '',
+    url: row.url || row.link || row.openchat_url || ''
+  }));
+}
+
+async function supportTableInsert(payload) {
+  const supabase = await getSupabase();
+  const row = {
+    course_id: payload.course_id,
+    title: payload.label || payload.title || '',
+    label: payload.label || payload.title || '',
+    url: payload.url || '',
+    sort_order: payload.sort_order || 10
+  };
+  const { data, error } = await supabase.from('course_support_links').insert(row).select('id').single();
+  if (error) throw error;
+  return data?.id;
+}
+
+async function supportTableUpdate(supportId, label, url, sortOrder, courseId = null) {
+  const supabase = await getSupabase();
+  let q = supabase.from('course_support_links').update({
+    title: label,
+    label,
+    url,
+    sort_order: sortOrder || 10
+  }).eq('id', supportId);
+  if (courseId) q = q.eq('course_id', courseId);
+  const { error } = await q;
+  if (error) throw error;
+  return { ok: true };
+}
+
+async function supportTableDelete(supportId) {
+  const supabase = await getSupabase();
+  const { error } = await supabase.from('course_support_links').delete().eq('id', supportId);
+  if (error) throw error;
+  return { ok: true };
+}
+
 export const api = {
   listCourses() { return rpc('app_public_list_courses'); },
   signIn(login, secret) { return rpc('app_admin_sign_in', { p_login: login, p_secret: secret }); },
@@ -41,34 +94,55 @@ export const api = {
       () => rpc('app_admin_list_support_links', { p_session_token: sessionToken, p_course_id: courseId }),
       () => rpc('app_admin_list_support_links', { p_course_id: courseId, p_session_token: sessionToken }),
       () => rpc('app_admin_list_support_links', { p_course_id: courseId }),
-      () => rpc('app_admin_list_support_links', courseId ? { course_id: courseId } : {})
+      () => rpc('app_admin_list_support_links', courseId ? { course_id: courseId } : {}),
+      () => supportTableSelect(courseId)
+    ];
+    return (async () => {
+      let lastErr;
+      for (const fn of tryCalls) {
+        try {
+          const data = await fn();
+          const rows = Array.isArray(data) ? data : (data?.items || data?.data || []);
+          return rows.map((row) => ({
+            ...row,
+            label: row.label || row.title || row.name || row.item || '',
+            title: row.title || row.label || row.name || row.item || '',
+            url: row.url || row.link || row.openchat_url || ''
+          }));
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      throw lastErr;
+    })();
+  },
+  async saveSupportLink(sessionToken, payload) {
+    const tryCalls = [
+      () => rpc('app_admin_save_support_link', {
+        p_session_token: sessionToken,
+        p_course_id: payload.course_id,
+        p_title: payload.label || payload.title || '',
+        p_url: payload.url || '',
+        p_sort_order: payload.sort_order || 10
+      }),
+      () => rpc('app_admin_save_support_link', {
+        p_course_id: payload.course_id,
+        p_title: payload.label || payload.title || '',
+        p_url: payload.url || '',
+        p_sort_order: payload.sort_order || 10
+      }),
+      () => supportTableInsert(payload)
     ];
     let lastErr;
     for (const fn of tryCalls) {
       try {
         const data = await fn();
-        const rows = Array.isArray(data) ? data : (data?.items || data?.data || []);
-        return rows.map((row) => ({
-          ...row,
-          label: row.label || row.title || row.name || row.item || '',
-          title: row.title || row.label || row.name || row.item || '',
-          url: row.url || row.link || row.openchat_url || ''
-        }));
+        return { ok: true, id: data?.id || data };
       } catch (e) {
         lastErr = e;
       }
     }
     throw lastErr;
-  },
-  async saveSupportLink(sessionToken, payload) {
-    const data = await rpc('app_admin_save_support_link', {
-      p_session_token: sessionToken,
-      p_course_id: payload.course_id,
-      p_title: payload.label || payload.title || '',
-      p_url: payload.url || '',
-      p_sort_order: payload.sort_order || 10
-    });
-    return { ok: true, id: data };
   },
   async updateSupportLink(sessionToken, supportId, label, url, sortOrder, courseId = null) {
     const tryCalls = [
@@ -88,12 +162,12 @@ export const api = {
         p_sort_order: sortOrder || 10
       }),
       () => rpc('app_admin_update_support_link', {
-        p_session_token: sessionToken,
         p_support_id: supportId,
         p_label: label,
         p_url: url,
         p_sort_order: sortOrder || 10
-      })
+      }),
+      () => supportTableUpdate(supportId, label, url, sortOrder, courseId)
     ];
     let lastErr;
     for (const fn of tryCalls) {
@@ -104,7 +178,9 @@ export const api = {
   async deleteSupportLink(sessionToken, supportId) {
     const tryCalls = [
       () => rpc('app_admin_delete_support_link', { p_session_token: sessionToken, p_id: supportId }),
-      () => rpc('app_admin_delete_support_link', { p_session_token: sessionToken, p_support_id: supportId })
+      () => rpc('app_admin_delete_support_link', { p_session_token: sessionToken, p_support_id: supportId }),
+      () => rpc('app_admin_delete_support_link', { p_id: supportId }),
+      () => supportTableDelete(supportId)
     ];
     let lastErr;
     for (const fn of tryCalls) {
