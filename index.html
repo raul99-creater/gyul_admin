@@ -73,6 +73,7 @@
           </div>
           <div class="settings-button-list">
             <button class="btn btn-secondary small settings-side-btn" id="open-roles-modal" type="button">권한 / 신청 관리</button>
+            <button class="btn btn-secondary small settings-side-btn" id="open-global-members-modal" type="button">전체 회원 관리</button>
           </div>
         </section>
       </aside>
@@ -242,5 +243,18 @@
   </div>
 
   <script type="module" src="assets/js/app.js"></script>
+
+  <div class="modal" id="global-members-modal" hidden>
+    <div class="modal-card feature-modal-card wide">
+      <div class="card-header modal-head"><div><h3>전체 회원 관리</h3><p class="muted">슈퍼어드민 전용입니다.</p></div><button class="btn btn-secondary small" data-close-modal="global-members-modal" type="button">닫기</button></div>
+      <section class="card modal-inner-card">
+        <div class="inline-form compact-grid" style="margin-bottom:12px">
+          <div class="field"><label>검색</label><input class="input" id="global-member-search" placeholder="이름 또는 전화번호" /></div>
+        </div>
+        <div id="global-members-table"></div>
+      </section>
+    </div>
+  </div>
+
 </body>
 </html>

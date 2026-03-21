@@ -94,5 +94,20 @@ export const api = {
       p_profile_id: profileId
     });
   },
+  updateSupportLink(sessionToken, supportId, label, url, sortOrder) {
+    return rpc('app_admin_update_support_link', {
+      p_session_token: sessionToken,
+      p_support_id: supportId,
+      p_label: label,
+      p_url: url,
+      p_sort_order: sortOrder || null
+    });
+  },
+  deleteSupportLink(sessionToken, supportId) {
+    return rpc('app_admin_delete_support_link', {
+      p_session_token: sessionToken,
+      p_support_id: supportId
+    });
+  },
   signOut(sessionToken) { return rpc('app_sign_out', { p_session_token: sessionToken }); }
 };

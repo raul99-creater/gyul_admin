@@ -294,3 +294,17 @@ button{cursor:pointer}
   .modal-card,.feature-modal-card,.feature-modal-card.wide,.course-modal-card{width:min(96vw,96vw)!important}
   .topbar,.nav-wrap{flex-wrap:wrap!important;gap:10px!important}
 }
+
+#global-members-table .course-select{min-width:180px}
+@media (max-width: 768px){
+  .settings-button-list{display:grid;grid-template-columns:1fr;gap:8px}
+  .feature-grid{grid-template-columns:1fr 1fr !important}
+  .card-header{gap:8px;align-items:flex-start}
+  .member-summary-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .modal-card.wide{width:min(96vw, 960px)}
+  #global-members-table table, #global-members-table thead, #global-members-table tbody, #global-members-table tr, #global-members-table td, #global-members-table th{display:block}
+  #global-members-table thead{display:none}
+  #global-members-table tr{border:1px solid #edd9c8;border-radius:16px;margin-bottom:10px;padding:10px;background:#fff}
+  #global-members-table td{border:none!important;padding:6px 0}
+  #global-members-table td::before{content:attr(data-label);display:block;font-size:12px;color:#9a6a40;margin-bottom:4px}
+}

@@ -222,7 +222,7 @@ function fillSupportForm(id) {
   state.editingSupportId = id;
   const form = qs('#support-form');
   if (!form) return;
-  form.querySelector('[name="label"]').value = item.label || '';
+  form.querySelector('[name="label"]').value = item.label || item.title || '';
   form.querySelector('[name="url"]').value = item.url || '';
   form.querySelector('[name="sort_order"]').value = item.sort_order || '';
   openModal('support-modal');
@@ -493,7 +493,7 @@ function renderSupportList() {
   wrap.innerHTML = list.length ? list.map((item) => `
     <div class="support-link-card">
       <div class="meta">
-        <strong>${escapeHtml(item.label || '문의')}</strong>
+        <strong>${escapeHtml(item.label || item.title || '문의')}</strong>
         <small>${escapeHtml(item.url || '')}</small>
       </div>
       <div class="support-actions">
@@ -566,6 +566,65 @@ function renderMembers() {
   renderSupportList();
 }
 
+
+function getUniqueGlobalMembers() {
+  const map = new Map();
+  const memberships = state.bootstrap?.memberships || [];
+  memberships.forEach((m) => {
+    const key = m.profile_id;
+    if (!key) return;
+    if (!map.has(key)) map.set(key, { profile_id: m.profile_id, full_name: m.full_name, phone: m.phone, courses: [] });
+    map.get(key).courses.push(m.course_id);
+  });
+  return Array.from(map.values()).map((row) => ({ ...row, courses: Array.from(new Set(row.courses)) }));
+}
+
+function renderGlobalMembersTable() {
+  const wrap = qs('#global-members-table');
+  if (!wrap) return;
+  const term = (qs('#global-member-search')?.value || '').trim();
+  const courseMap = Object.fromEntries((state.bootstrap?.courses || []).map((c) => [c.id, c]));
+  const rows = getUniqueGlobalMembers().filter((row) => {
+    if (!term) return true;
+    return String(row.full_name || '').includes(term) || String(row.phone || '').includes(term);
+  });
+  wrap.innerHTML = rows.length ? `<table><thead><tr><th>이름</th><th>전화번호</th><th>등록 강의</th><th>강의 변경</th><th></th></tr></thead><tbody>${rows.map((row) => {
+    const selected = row.courses[0] || '';
+    const courseNames = row.courses.map((id) => courseMap[id] ? `${courseMap[id].instructor_name} ${courseMap[id].cohort_label}` : '').filter(Boolean).join(', ');
+    return `<tr>
+      <td data-label="이름">${escapeHtml(row.full_name || '')}</td>
+      <td data-label="전화번호">${escapeHtml(row.phone || '')}</td>
+      <td data-label="등록 강의">${escapeHtml(courseNames || '-')}</td>
+      <td data-label="강의 변경"><select class="input course-select" data-change-profile="${row.profile_id}">${(state.bootstrap?.courses || []).map((c) => `<option value="${c.id}" ${selected===c.id?'selected':''}>${escapeHtml(c.instructor_name)} ${escapeHtml(c.cohort_label)}</option>`).join('')}</select> <button class="btn btn-secondary small" data-save-profile-course="${row.profile_id}">변경</button></td>
+      <td data-label="관리" class="text-right"><button class="btn btn-danger small" data-hard-delete-profile="${row.profile_id}">회원삭제</button></td>
+    </tr>`;
+  }).join('')}</tbody></table>` : '<div class="empty-state">검색 결과가 없습니다.</div>';
+  qsa('[data-hard-delete-profile]', wrap).forEach((btn) => btn.addEventListener('click', async () => { await hardDeleteProfile(btn.dataset.hardDeleteProfile); await refreshBootstrap(); renderGlobalMembersTable(); }));
+  qsa('[data-save-profile-course]', wrap).forEach((btn) => btn.addEventListener('click', async () => {
+    const profileId = btn.dataset.saveProfileCourse;
+    const select = wrap.querySelector(`[data-change-profile="${profileId}"]`);
+    const targetCourseId = select?.value;
+    const row = getUniqueGlobalMembers().find((item) => item.profile_id === profileId);
+    if (!row || !targetCourseId) return;
+    try {
+      for (const courseId of row.courses) {
+        await api.deleteMembership(state.sessionToken, courseId, profileId);
+      }
+      await api.upsertMember(state.sessionToken, targetCourseId, row.full_name, row.phone);
+      await refreshBootstrap();
+      renderGlobalMembersTable();
+      setMessage(qs('#app-message'), '등록 강의를 변경했습니다.');
+    } catch (err) {
+      setMessage(qs('#app-message'), err.message || '등록 강의 변경에 실패했습니다.', 'error');
+    }
+  }));
+}
+
+function openGlobalMembersModal() {
+  renderGlobalMembersTable();
+  openModal('global-members-modal');
+}
+
 function renderRequestsAndRoles() {
   const requestWrap = qs('#request-list-table');
   const requestSection = qs('#request-section');
@@ -573,9 +632,11 @@ function renderRequestsAndRoles() {
   const superSection = qs('#super-only');
   const sidebarSettings = qs('#sidebar-admin-settings');
   const rolesButton = qs('#open-roles-modal');
+  const globalMembersButton = qs('#open-global-members-modal');
   const isSuper = !!state.bootstrap?.is_super_admin;
   if (sidebarSettings) sidebarSettings.hidden = !isSuper;
   if (rolesButton) rolesButton.onclick = () => { if (isSuper) openModal('roles-modal'); };
+  if (globalMembersButton) globalMembersButton.onclick = () => { if (isSuper) openGlobalMembersModal(); };
   if (!isSuper) { if (superSection) superSection.hidden = true; closeModal('roles-modal'); return; }
   superSection.hidden = false;
   const courseMap = Object.fromEntries((state.bootstrap.courses || []).map((course) => [course.id, course]));
@@ -940,17 +1001,18 @@ function bindForms() {
 
   qs('#open-course-modal')?.addEventListener('click', () => { resetCourseForm(); openCourseModal(); });
   qs('#close-course-modal')?.addEventListener('click', closeCourseModal);
-  ['course-modal','responses-modal','members-modal','member-add-modal','schedule-modal','event-modal','assignment-modal','support-modal','roles-modal'].forEach((id) => {
+  ['course-modal','responses-modal','members-modal','member-add-modal','schedule-modal','event-modal','assignment-modal','support-modal','roles-modal','global-members-modal'].forEach((id) => {
     qs(`#${id}`)?.addEventListener('click', (e) => { if (e.target.id === id) closeModal(id); });
   });
   qs('#close-responses-modal')?.addEventListener('click', closeResponsesModal);
   qs('#close-members-modal')?.addEventListener('click', closeMembersModal);
-  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { ['course-modal','responses-modal','members-modal','member-add-modal','schedule-modal','event-modal','assignment-modal','support-modal','roles-modal'].forEach(closeModal); } });
+  qs('#global-member-search')?.addEventListener('input', renderGlobalMembersTable);
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { ['course-modal','responses-modal','members-modal','member-add-modal','schedule-modal','event-modal','assignment-modal','support-modal','roles-modal','global-members-modal'].forEach(closeModal); } });
 
   qs('#signout-btn')?.addEventListener('click', async () => {
     try { await api.signOut(state.sessionToken); } catch {}
     clearSession(sessionKey); state.sessionToken = ''; state.bootstrap = null;
-    ['course-modal','responses-modal','members-modal','member-add-modal','schedule-modal','event-modal','assignment-modal','support-modal','roles-modal'].forEach(closeModal);
+    ['course-modal','responses-modal','members-modal','member-add-modal','schedule-modal','event-modal','assignment-modal','support-modal','roles-modal','global-members-modal'].forEach(closeModal);
     qs('#app-main').hidden = true; qs('#app-nav').hidden = true; qs('#auth-section').hidden = false;
   });
 }
