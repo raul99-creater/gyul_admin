@@ -597,13 +597,26 @@ function getCourseInstructorRows(courseId) {
 function renderCourseMemberManager(courseId) {
   const course = (state.bootstrap?.courses || []).find((c) => c.id === courseId);
   const wrap = qs('#course-member-manager');
+  const searchField = qs('#global-member-search');
+  if (searchField) {
+    searchField.disabled = !courseId;
+    searchField.placeholder = courseId ? '이름 또는 전화번호' : '강사/기수를 먼저 선택하세요';
+    if (!courseId) searchField.value = '';
+  }
   if (!wrap) return;
   if (!courseId || !course) {
-    wrap.innerHTML = '<div class="empty-state">강의를 선택하면 회원과 강사 목록을 볼 수 있습니다.</div>';
+    wrap.innerHTML = '<div class="empty-state">강사/기수 버튼을 선택하면 회원과 강사 목록을 볼 수 있습니다.</div>';
     return;
   }
-  const members = getCourseMemberRows(courseId);
-  const instructors = getCourseInstructorRows(courseId);
+  const term = (searchField?.value || '').trim();
+  const members = getCourseMemberRows(courseId).filter((m) => {
+    if (!term) return true;
+    return String(m.full_name || '').includes(term) || String(m.phone || '').includes(term);
+  });
+  const instructors = getCourseInstructorRows(courseId).filter((m) => {
+    if (!term) return true;
+    return String(m.full_name || '').includes(term) || String(m.phone || '').includes(term);
+  });
   wrap.innerHTML = `
     <div class="member-manager-panel">
       <div class="member-manager-head">
@@ -611,7 +624,6 @@ function renderCourseMemberManager(courseId) {
           <h4>${escapeHtml(course.title || `${course.instructor_name} ${course.cohort_label}`)}</h4>
           <p class="muted">회원 ${members.length}명 · 강사 ${instructors.length}명</p>
         </div>
-        <button class="btn btn-primary small" type="button" id="manager-add-member">회원 추가</button>
       </div>
       <div class="member-manager-split">
         <section class="member-manager-box">
@@ -684,22 +696,19 @@ function renderCourseMemberManager(courseId) {
 
 function renderGlobalMembersTable(activeCourseId = '') {
   const wrap = qs('#global-members-table');
+  const searchField = qs('#global-member-search');
   if (!wrap) return;
-  const term = (qs('#global-member-search')?.value || '').trim();
-  const rows = getUniqueGlobalMembers().filter((row) => {
-    if (!term) return true;
-    return String(row.full_name || '').includes(term) || String(row.phone || '').includes(term);
-  });
   const courses = state.bootstrap?.courses || [];
-  const selectedCourseId = activeCourseId || qs('[data-course-manager-btn].active')?.dataset.courseManagerBtn || courses[0]?.id || '';
+  const selectedCourseId = activeCourseId || qs('[data-course-manager-btn].active')?.dataset.courseManagerBtn || '';
+  if (searchField) {
+    searchField.disabled = !selectedCourseId;
+    searchField.placeholder = selectedCourseId ? '이름 또는 전화번호' : '강사/기수를 먼저 선택하세요';
+    searchField.oninput = () => renderCourseMemberManager(qs('[data-course-manager-btn].active')?.dataset.courseManagerBtn || '');
+  }
   wrap.innerHTML = `
     <div class="member-manager-shell">
       <div class="course-button-grid">
         ${courses.map((c) => `<button type="button" class="course-manager-btn ${c.id===selectedCourseId?'active':''}" data-course-manager-btn="${c.id}">${escapeHtml(c.instructor_name)} ${escapeHtml(formatCohortLabel(c.cohort_label))}</button>`).join('')}
-      </div>
-      <div class="member-search-summary">검색 결과 ${rows.length}명</div>
-      <div id="global-members-simple-list" class="member-vertical-list">
-        ${rows.length ? rows.map((row) => `<article class="member-vertical-card slim"><div class="member-main"><strong>${escapeHtml(row.full_name || '')}</strong><span>${escapeHtml(row.phone || '')}</span></div></article>`).join('') : '<div class="empty-state">검색 결과가 없습니다.</div>'}
       </div>
       <div id="course-member-manager"></div>
     </div>`;
