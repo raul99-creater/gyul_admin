@@ -36,8 +36,29 @@ export const api = {
   saveAssignment(sessionToken, payload) { return rpc('app_admin_save_assignment', { p_session_token: sessionToken, p_item: payload }); },
   saveEvent(sessionToken, payload) { return rpc('app_admin_save_event', { p_session_token: sessionToken, p_item: payload }); },
   saveToken(sessionToken, payload) { return rpc('app_admin_save_token', { p_session_token: sessionToken, p_item: payload }); },
-  listSupportLinks(sessionToken, courseId) {
-    return rpc('app_admin_list_support_links', { p_session_token: sessionToken, p_course_id: courseId });
+  async listSupportLinks(sessionToken, courseId) {
+    const tryCalls = [
+      () => rpc('app_admin_list_support_links', { p_session_token: sessionToken, p_course_id: courseId }),
+      () => rpc('app_admin_list_support_links', { p_course_id: courseId, p_session_token: sessionToken }),
+      () => rpc('app_admin_list_support_links', { p_course_id: courseId }),
+      () => rpc('app_admin_list_support_links', courseId ? { course_id: courseId } : {})
+    ];
+    let lastErr;
+    for (const fn of tryCalls) {
+      try {
+        const data = await fn();
+        const rows = Array.isArray(data) ? data : (data?.items || data?.data || []);
+        return rows.map((row) => ({
+          ...row,
+          label: row.label || row.title || row.name || row.item || '',
+          title: row.title || row.label || row.name || row.item || '',
+          url: row.url || row.link || row.openchat_url || ''
+        }));
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw lastErr;
   },
   async saveSupportLink(sessionToken, payload) {
     const data = await rpc('app_admin_save_support_link', {

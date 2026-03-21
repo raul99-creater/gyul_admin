@@ -866,8 +866,9 @@ async function refreshSupportLinks() {
   try {
     const res = await api.listSupportLinks(state.sessionToken, state.selectedCourseId);
     state.supportLinks = Array.isArray(res) ? res : (res?.items || []);
-  } catch {
+  } catch (err) {
     state.supportLinks = [];
+    setMessage(qs('#app-message'), (err && err.message) ? `고객센터 목록을 불러오지 못했습니다: ${err.message}` : '고객센터 목록을 불러오지 못했습니다.', 'error');
   }
   renderFeatureGrid();
   renderSupportList();
@@ -1087,9 +1088,20 @@ function bindForms() {
             sort_order: form.sort_order.value.trim() || null
           });
       if (res?.ok === false) throw new Error(res?.message || '고객센터 저장에 실패했습니다.');
+      const wasEditing = !!state.editingSupportId;
       resetSupportForm();
       await refreshSupportLinks();
-      setMessage(qs('#app-message'), state.editingSupportId ? '고객센터 항목을 수정했습니다.' : '고객센터 항목을 저장했습니다.');
+      if (!wasEditing && Array.isArray(state.supportLinks) && !state.supportLinks.length) {
+        state.supportLinks = [{
+          id: res?.id || crypto.randomUUID(),
+          label: form.label.value.trim(),
+          title: form.label.value.trim(),
+          url: form.url.value.trim(),
+          sort_order: Number(form.sort_order.value.trim() || 10)
+        }];
+        renderSupportList();
+      }
+      setMessage(qs('#app-message'), wasEditing ? '고객센터 항목을 수정했습니다.' : '고객센터 항목을 저장했습니다.');
     } catch (err) { const raw = String(err?.message || err || ''); const msg = raw.includes('app_admin_save_support_link') ? '고객센터 저장 함수가 아직 서버에 없습니다. 최신 SQL 패치를 실행한 뒤 다시 시도해주세요.' : (raw || '고객센터 저장에 실패했습니다.'); setMessage(qs('#app-message'), msg, 'error'); }
   });
 
