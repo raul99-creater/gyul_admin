@@ -38,7 +38,7 @@
         <section id="signup-panel" hidden>
           <div class="auth-stack-divider"></div>
           <div class="auth-stack-header signup-head">
-            <h2 class="auth-title sub">강사 admin 신청</h2>
+            <h2 class="auth-title sub">강사 신청</h2>
           </div>
           <div id="signup-message" class="status-bar hidden"></div>
           <form id="admin-signup-form" class="stack auth-form">
@@ -178,12 +178,12 @@
 
   <div class="modal" id="roles-modal" hidden>
     <div class="modal-card feature-modal-card wide">
-      <div class="card-header modal-head"><div><h3>관리자 권한 / 신청</h3><p class="muted">슈퍼어드민만 접근할 수 있습니다.</p></div><button class="btn btn-secondary small" data-close-modal="roles-modal" type="button">닫기</button></div>
+      <div class="card-header modal-head"><div><h3>관리자 권한 / 신청</h3><p class="muted">관리자 어드민만 접근할 수 있습니다.</p></div><button class="btn btn-secondary small" data-close-modal="roles-modal" type="button">닫기</button></div>
       <section class="card modal-inner-card" id="super-only" hidden>
         <form id="role-form" class="stack">
           <div class="inline-form inline-3">
             <div class="field"><label>회원</label><select class="select" id="role-profile-id" name="profile_id"></select></div>
-            <div class="field"><label>권한</label><select class="select" name="role_type"><option value="course_admin">강사 admin</option><option value="super_admin">슈퍼어드민</option></select></div>
+            <div class="field"><label>권한</label><select class="select" name="role_type"><option value="course_admin">강사 admin</option><option value="super_admin">관리자 어드민</option></select></div>
             <div class="field"><label>기준 강의</label><select class="select" id="role-course-id" name="course_id"></select></div>
           </div>
           <button class="btn btn-primary" type="submit">권한 부여</button>
@@ -246,7 +246,7 @@
 
   <div class="modal" id="global-members-modal" hidden>
     <div class="modal-card feature-modal-card wide">
-      <div class="card-header modal-head"><div><h3>전체 회원 관리</h3><p class="muted">슈퍼어드민 전용입니다.</p></div><button class="btn btn-secondary small" data-close-modal="global-members-modal" type="button">닫기</button></div>
+      <div class="card-header modal-head"><div><h3>전체 회원 관리</h3><p class="muted">관리자 어드민 전용입니다.</p></div><button class="btn btn-secondary small" data-close-modal="global-members-modal" type="button">닫기</button></div>
       <section class="card modal-inner-card">
         <div class="inline-form compact-grid" style="margin-bottom:12px">
           <div class="field"><label>검색</label><input class="input" id="global-member-search" placeholder="이름 또는 전화번호" /></div>

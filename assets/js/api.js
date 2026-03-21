@@ -37,7 +37,7 @@ export const api = {
   saveEvent(sessionToken, payload) { return rpc('app_admin_save_event', { p_session_token: sessionToken, p_item: payload }); },
   saveToken(sessionToken, payload) { return rpc('app_admin_save_token', { p_session_token: sessionToken, p_item: payload }); },
   listSupportLinks(sessionToken, courseId) { return rpc('app_admin_list_support_links', { p_session_token: sessionToken, p_course_id: courseId }); },
-  saveSupportLink(sessionToken, payload) { return rpc('app_admin_save_support_link', { p_session_token: sessionToken, p_item: payload }); },
+  saveSupportLink(sessionToken, payload) { return rpc('app_admin_save_support_link', { p_session_token: sessionToken, p_course_id: payload.course_id, p_title: payload.label || payload.title || '', p_url: payload.url || '', p_sort_order: payload.sort_order || 10 }); },
   deleteItem(sessionToken, kind, id) { return rpc('app_admin_delete_item', { p_session_token: sessionToken, p_kind: kind, p_id: id }); },
   deleteMembership(sessionToken, courseId, profileId) { return rpc('app_admin_delete_membership', { p_session_token: sessionToken, p_course_id: courseId, p_profile_id: profileId }); },
   upsertMember(sessionToken, courseId, fullName, phone) {
@@ -76,16 +76,16 @@ export const api = {
   updateSupportLink(sessionToken, supportId, label, url, sortOrder) {
     return rpc('app_admin_update_support_link', {
       p_session_token: sessionToken,
-      p_support_id: supportId,
-      p_label: label,
+      p_id: supportId,
+      p_title: label,
       p_url: url,
-      p_sort_order: sortOrder || null
+      p_sort_order: sortOrder || 10
     });
   },
   deleteSupportLink(sessionToken, supportId) {
     return rpc('app_admin_delete_support_link', {
       p_session_token: sessionToken,
-      p_support_id: supportId
+      p_id: supportId
     });
   },
   deleteProfile(sessionToken, profileId) {

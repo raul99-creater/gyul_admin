@@ -579,45 +579,135 @@ function getUniqueGlobalMembers() {
   return Array.from(map.values()).map((row) => ({ ...row, courses: Array.from(new Set(row.courses)) }));
 }
 
-function renderGlobalMembersTable() {
-  const wrap = qs('#global-members-table');
-  if (!wrap) return;
-  const term = (qs('#global-member-search')?.value || '').trim();
-  const courseMap = Object.fromEntries((state.bootstrap?.courses || []).map((c) => [c.id, c]));
-  const rows = getUniqueGlobalMembers().filter((row) => {
-    if (!term) return true;
-    return String(row.full_name || '').includes(term) || String(row.phone || '').includes(term);
+function getCourseMemberRows(courseId) {
+  return (state.bootstrap?.memberships || []).filter((m) => m.course_id === courseId);
+}
+
+function getCourseInstructorRows(courseId) {
+  const course = (state.bootstrap?.courses || []).find((c) => c.id === courseId);
+  const roles = (state.bootstrap?.roles || []).filter((r) => r.role_type === 'course_admin' && (r.course_id === courseId || r.target_instructor_name === course?.instructor_name));
+  const uniq = new Map();
+  roles.forEach((r) => {
+    const key = r.profile_id || `${r.full_name}|${r.phone}`;
+    if (!uniq.has(key)) uniq.set(key, r);
   });
-  wrap.innerHTML = rows.length ? `<table><thead><tr><th>이름</th><th>전화번호</th><th>등록 강의</th><th>강의 변경</th><th></th></tr></thead><tbody>${rows.map((row) => {
-    const selected = row.courses[0] || '';
-    const courseNames = row.courses.map((id) => courseMap[id] ? `${courseMap[id].instructor_name} ${courseMap[id].cohort_label}` : '').filter(Boolean).join(', ');
-    return `<tr>
-      <td data-label="이름">${escapeHtml(row.full_name || '')}</td>
-      <td data-label="전화번호">${escapeHtml(row.phone || '')}</td>
-      <td data-label="등록 강의">${escapeHtml(courseNames || '-')}</td>
-      <td data-label="강의 변경"><select class="input course-select" data-change-profile="${row.profile_id}">${(state.bootstrap?.courses || []).map((c) => `<option value="${c.id}" ${selected===c.id?'selected':''}>${escapeHtml(c.instructor_name)} ${escapeHtml(c.cohort_label)}</option>`).join('')}</select> <button class="btn btn-secondary small" data-save-profile-course="${row.profile_id}">변경</button></td>
-      <td data-label="관리" class="text-right"><button class="btn btn-danger small" data-hard-delete-profile="${row.profile_id}">회원삭제</button></td>
-    </tr>`;
-  }).join('')}</tbody></table>` : '<div class="empty-state">검색 결과가 없습니다.</div>';
-  qsa('[data-hard-delete-profile]', wrap).forEach((btn) => btn.addEventListener('click', async () => { await hardDeleteProfile(btn.dataset.hardDeleteProfile); await refreshBootstrap(); renderGlobalMembersTable(); }));
+  return Array.from(uniq.values());
+}
+
+function renderCourseMemberManager(courseId) {
+  const course = (state.bootstrap?.courses || []).find((c) => c.id === courseId);
+  const wrap = qs('#course-member-manager');
+  if (!wrap) return;
+  if (!courseId || !course) {
+    wrap.innerHTML = '<div class="empty-state">강의를 선택하면 회원과 강사 목록을 볼 수 있습니다.</div>';
+    return;
+  }
+  const members = getCourseMemberRows(courseId);
+  const instructors = getCourseInstructorRows(courseId);
+  wrap.innerHTML = `
+    <div class="member-manager-panel">
+      <div class="member-manager-head">
+        <div>
+          <h4>${escapeHtml(course.title || `${course.instructor_name} ${course.cohort_label}`)}</h4>
+          <p class="muted">회원 ${members.length}명 · 강사 ${instructors.length}명</p>
+        </div>
+        <button class="btn btn-primary small" type="button" id="manager-add-member">회원 추가</button>
+      </div>
+      <div class="member-manager-split">
+        <section class="member-manager-box">
+          <h5>회원</h5>
+          <div class="member-vertical-list">
+            ${members.length ? members.map((m) => `
+              <article class="member-vertical-card">
+                <div class="member-main">
+                  <strong>${escapeHtml(m.full_name || '')}</strong>
+                  <span>${escapeHtml(m.phone || '')}</span>
+                </div>
+                <div class="member-actions">
+                  <select class="input course-select" data-change-profile="${m.profile_id}">${(state.bootstrap?.courses || []).map((c) => `<option value="${c.id}" ${c.id===courseId?'selected':''}>${escapeHtml(c.instructor_name)} ${escapeHtml(formatCohortLabel(c.cohort_label))}</option>`).join('')}</select>
+                  <button class="btn btn-secondary small" data-save-profile-course="${m.profile_id}">변경</button>
+                  <button class="btn btn-danger small" data-delete-member-profile="${m.profile_id}" data-delete-member-course="${courseId}">수강삭제</button>
+                  ${state.bootstrap?.is_super_admin ? `<button class="btn btn-danger small" data-hard-delete-profile="${m.profile_id}">회원삭제</button>` : ''}
+                </div>
+              </article>`).join('') : '<div class="empty-state">등록된 회원이 없습니다.</div>'}
+          </div>
+        </section>
+        <section class="member-manager-box">
+          <h5>강사</h5>
+          <div class="member-vertical-list">
+            ${instructors.length ? instructors.map((r) => `
+              <article class="member-vertical-card slim">
+                <div class="member-main">
+                  <strong>${escapeHtml(r.full_name || '')}</strong>
+                  <span>${escapeHtml(r.phone || '')}</span>
+                </div>
+                <div class="member-actions">
+                  <span class="pill orange">강사</span>
+                  <button class="btn btn-danger small" data-role-profile="${r.profile_id || ''}" data-role-type="course_admin" data-role-course="${courseId}">삭제</button>
+                </div>
+              </article>`).join('') : '<div class="empty-state">등록된 강사가 없습니다.</div>'}
+          </div>
+        </section>
+      </div>
+    </div>`;
+  qs('#manager-add-member')?.addEventListener('click', () => openModal('member-add-modal'));
+  qsa('[data-delete-member-profile]', wrap).forEach((btn) => btn.addEventListener('click', async () => { await removeMembership(btn.dataset.deleteMemberCourse, btn.dataset.deleteMemberProfile); renderCourseMemberManager(courseId); }));
+  qsa('[data-hard-delete-profile]', wrap).forEach((btn) => btn.addEventListener('click', async () => { await hardDeleteProfile(btn.dataset.hardDeleteProfile); renderCourseMemberManager(courseId); }));
   qsa('[data-save-profile-course]', wrap).forEach((btn) => btn.addEventListener('click', async () => {
     const profileId = btn.dataset.saveProfileCourse;
     const select = wrap.querySelector(`[data-change-profile="${profileId}"]`);
+    const row = members.find((m) => m.profile_id === profileId);
     const targetCourseId = select?.value;
-    const row = getUniqueGlobalMembers().find((item) => item.profile_id === profileId);
     if (!row || !targetCourseId) return;
     try {
-      for (const courseId of row.courses) {
-        await api.deleteMembership(state.sessionToken, courseId, profileId);
-      }
+      await api.deleteMembership(state.sessionToken, courseId, profileId);
       await api.upsertMember(state.sessionToken, targetCourseId, row.full_name, row.phone);
       await refreshBootstrap();
-      renderGlobalMembersTable();
-      setMessage(qs('#app-message'), '등록 강의를 변경했습니다.');
+      renderCourseMemberManager(targetCourseId);
+      renderGlobalMembersTable(targetCourseId);
     } catch (err) {
       setMessage(qs('#app-message'), err.message || '등록 강의 변경에 실패했습니다.', 'error');
     }
   }));
+  qsa('[data-role-profile]', wrap).forEach((btn) => btn.addEventListener('click', async () => {
+    if (!confirm('이 강사 권한을 삭제하시겠습니까?')) return;
+    try {
+      const res = await api.deleteRole(state.sessionToken, btn.dataset.roleProfile, btn.dataset.roleType, btn.dataset.roleCourse || null);
+      if (!res?.ok) throw new Error(res?.message || '권한 삭제에 실패했습니다.');
+      await refreshBootstrap();
+      renderCourseMemberManager(courseId);
+    } catch (err) {
+      setMessage(qs('#app-message'), err.message || '권한 삭제에 실패했습니다.', 'error');
+    }
+  }));
+}
+
+function renderGlobalMembersTable(activeCourseId = '') {
+  const wrap = qs('#global-members-table');
+  if (!wrap) return;
+  const term = (qs('#global-member-search')?.value || '').trim();
+  const rows = getUniqueGlobalMembers().filter((row) => {
+    if (!term) return true;
+    return String(row.full_name || '').includes(term) || String(row.phone || '').includes(term);
+  });
+  const courses = state.bootstrap?.courses || [];
+  const selectedCourseId = activeCourseId || qs('[data-course-manager-btn].active')?.dataset.courseManagerBtn || courses[0]?.id || '';
+  wrap.innerHTML = `
+    <div class="member-manager-shell">
+      <div class="course-button-grid">
+        ${courses.map((c) => `<button type="button" class="course-manager-btn ${c.id===selectedCourseId?'active':''}" data-course-manager-btn="${c.id}">${escapeHtml(c.instructor_name)} ${escapeHtml(formatCohortLabel(c.cohort_label))}</button>`).join('')}
+      </div>
+      <div class="member-search-summary">검색 결과 ${rows.length}명</div>
+      <div id="global-members-simple-list" class="member-vertical-list">
+        ${rows.length ? rows.map((row) => `<article class="member-vertical-card slim"><div class="member-main"><strong>${escapeHtml(row.full_name || '')}</strong><span>${escapeHtml(row.phone || '')}</span></div></article>`).join('') : '<div class="empty-state">검색 결과가 없습니다.</div>'}
+      </div>
+      <div id="course-member-manager"></div>
+    </div>`;
+  qsa('[data-course-manager-btn]', wrap).forEach((btn) => btn.addEventListener('click', () => {
+    qsa('[data-course-manager-btn]', wrap).forEach((b) => b.classList.toggle('active', b === btn));
+    renderCourseMemberManager(btn.dataset.courseManagerBtn);
+  }));
+  renderCourseMemberManager(selectedCourseId);
 }
 
 function openGlobalMembersModal() {
@@ -657,7 +747,7 @@ function renderRequestsAndRoles() {
     if (!roleMap.has(key)) roleMap.set(key, { ...item, target_label: targetLabel });
   });
   const roles = Array.from(roleMap.values()).sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''), 'ko'));
-  roleWrap.innerHTML = roles.length ? `<table><thead><tr><th>이름</th><th>연락처</th><th>권한</th><th>대상</th><th></th></tr></thead><tbody>${roles.map((item) => `<tr><td>${escapeHtml(item.full_name || '')}</td><td>${escapeHtml(item.phone || '')}</td><td>${escapeHtml(item.role_type)}</td><td>${escapeHtml(item.target_label || (item.course_id ? (courseMap[item.course_id]?.instructor_name || '') : '전체'))}</td><td class="text-right"><button class="btn btn-danger small" data-role-profile="${item.profile_id || ''}" data-role-type="${item.role_type || ''}" data-role-course="${item.course_id || ''}">삭제</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">권한 정보가 없습니다.</div>';
+  roleWrap.innerHTML = roles.length ? `<table><thead><tr><th>이름</th><th>연락처</th><th>권한</th><th>대상</th><th></th></tr></thead><tbody>${roles.map((item) => `<tr><td>${escapeHtml(item.full_name || '')}</td><td>${escapeHtml(item.phone || '')}</td><td>${escapeHtml(item.role_type === 'super_admin' ? '관리자 어드민' : '강사')}</td><td>${escapeHtml(item.target_label || (item.course_id ? (courseMap[item.course_id]?.instructor_name || '') : '전체'))}</td><td class="text-right"><button class="btn btn-danger small" data-role-profile="${item.profile_id || ''}" data-role-type="${item.role_type || ''}" data-role-course="${item.course_id || ''}">삭제</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">권한 정보가 없습니다.</div>';
   qsa('[data-role-profile]').forEach((btn) => btn.addEventListener('click', async () => {
     if (!confirm('이 권한을 삭제하시겠습니까?')) return;
     try {
@@ -766,7 +856,7 @@ async function refreshSupportLinks() {
   }
   try {
     const res = await api.listSupportLinks(state.sessionToken, state.selectedCourseId);
-    state.supportLinks = res?.items || [];
+    state.supportLinks = Array.isArray(res) ? res : (res?.items || []);
   } catch {
     state.supportLinks = [];
   }
@@ -832,7 +922,7 @@ async function initAuth() {
     }
   });
   qs('#bootstrap-hint-btn')?.addEventListener('click', () => {
-    setMessage(loginMsg, '최초 슈퍼어드민은 서버 SQL에서 수동 등록 후 로그인하세요.', '');
+    setMessage(loginMsg, '최초 관리자 어드민은 서버 SQL에서 수동 등록 후 로그인하세요.', '');
   });
   loginForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
