@@ -72,5 +72,27 @@ export const api = {
       p_course_id: courseId || null
     });
   },
+
+  updateSupportLink(sessionToken, supportId, label, url, sortOrder) {
+    return rpc('app_admin_update_support_link', {
+      p_session_token: sessionToken,
+      p_support_id: supportId,
+      p_label: label,
+      p_url: url,
+      p_sort_order: sortOrder || null
+    });
+  },
+  deleteSupportLink(sessionToken, supportId) {
+    return rpc('app_admin_delete_support_link', {
+      p_session_token: sessionToken,
+      p_support_id: supportId
+    });
+  },
+  deleteProfile(sessionToken, profileId) {
+    return rpc('app_admin_delete_profile', {
+      p_session_token: sessionToken,
+      p_profile_id: profileId
+    });
+  },
   signOut(sessionToken) { return rpc('app_sign_out', { p_session_token: sessionToken }); }
 };

@@ -284,3 +284,13 @@ button{cursor:pointer}
 .folder-plus-wrap{display:flex;justify-content:center;margin:8px 0 14px}
 .folder-plus-wrap .icon-btn.centered{margin:0 auto;font-weight:900}
 .settings-card{margin-top:2px}
+
+@media (max-width:768px){
+  .layout{grid-template-columns:1fr!important}
+  .sidebar{width:100%!important;position:static!important}
+  .member-summary-top,.member-summary-actions,.feature-grid,.stats-grid,.overview-grid,.grid-2,.grid-3{display:grid!important;grid-template-columns:1fr!important}
+  .card-header,.support-link-card,.event-summary-actions{flex-direction:column!important;align-items:stretch!important}
+  .support-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .modal-card,.feature-modal-card,.feature-modal-card.wide,.course-modal-card{width:min(96vw,96vw)!important}
+  .topbar,.nav-wrap{flex-wrap:wrap!important;gap:10px!important}
+}

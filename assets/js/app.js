@@ -117,11 +117,14 @@ function openMembersModal() {
   if (!modal || !table) return;
   title.textContent = '회원 명단';
   subtitle.textContent = course ? `${course.instructor_name} ${formatCohortLabel(course.cohort_label)} · 총 ${members.length}명` : '';
-  table.innerHTML = members.length ? `<table><thead><tr><th>이름</th><th>전화번호</th><th>등록일</th><th></th></tr></thead><tbody>${members.map((item) => `<tr><td>${escapeHtml(item.full_name)}</td><td>${escapeHtml(item.phone)}</td><td>${formatDate(item.created_at)}</td><td class="text-right"><button class="btn btn-danger small" data-delete-member-profile="${item.profile_id || ''}" data-delete-member-course="${item.course_id || ''}">삭제</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">등록된 회원이 없습니다.</div>';
+  table.innerHTML = members.length ? `<table><thead><tr><th>이름</th><th>전화번호</th><th>등록일</th><th></th></tr></thead><tbody>${members.map((item) => `<tr><td>${escapeHtml(item.full_name)}</td><td>${escapeHtml(item.phone)}</td><td>${formatDate(item.created_at)}</td><td class="text-right"><button class="btn btn-danger small" data-delete-member-profile="${item.profile_id || ''}" data-delete-member-course="${item.course_id || ''}">수강삭제</button>${state.bootstrap?.is_super_admin ? ` <button class="btn btn-secondary small" data-hard-delete-profile="${item.profile_id || ''}">회원삭제</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state">등록된 회원이 없습니다.</div>';
   qsa('[data-delete-member-profile]', table).forEach((btn) => btn.addEventListener('click', async () => {
     const profileId = btn.dataset.deleteMemberProfile;
     const courseId = btn.dataset.deleteMemberCourse;
     await removeMembership(courseId, profileId);
+  }));
+  qsa('[data-hard-delete-profile]', table).forEach((btn) => btn.addEventListener('click', async () => {
+    await hardDeleteProfile(btn.dataset.hardDeleteProfile);
   }));
   modal.hidden = false;
   qs('#export-members-btn').onclick = () => exportRowsXlsx(`${course?.title || 'members'}_회원명단.xlsx`, members.map((item) => ({ 이름: item.full_name, 전화번호: item.phone, 등록일: formatDate(item.created_at) })));
@@ -211,6 +214,31 @@ function resetSupportForm() {
   state.editingSupportId = '';
   const form = qs('#support-form');
   form?.reset();
+}
+
+function fillSupportForm(id) {
+  const item = selectedSupportLinks().find((row) => row.id === id);
+  if (!item) return;
+  state.editingSupportId = id;
+  const form = qs('#support-form');
+  if (!form) return;
+  form.querySelector('[name="label"]').value = item.label || '';
+  form.querySelector('[name="url"]').value = item.url || '';
+  form.querySelector('[name="sort_order"]').value = item.sort_order || '';
+  openModal('support-modal');
+}
+
+async function hardDeleteProfile(profileId) {
+  if (!profileId) return;
+  if (!confirm('이 회원 정보를 전체 삭제하시겠습니까? 모든 강의 배정과 프로필이 삭제됩니다.')) return;
+  try {
+    const res = await api.deleteProfile(state.sessionToken, profileId);
+    if (!res?.ok) throw new Error(res?.message || '회원 삭제에 실패했습니다.');
+    await refreshBootstrap();
+    openMembersModal();
+  } catch (err) {
+    setMessage(qs('#app-message'), err.message || '회원 삭제에 실패했습니다.', 'error');
+  }
 }
 
 function resetEventBuilder(questions = []) {
@@ -470,6 +498,7 @@ function renderSupportList() {
       </div>
       <div class="support-actions">
         <button class="btn btn-secondary small" type="button" data-copy-support="${item.id}">링크 복사</button>
+        <button class="btn btn-secondary small" type="button" data-edit-support="${item.id}">수정</button>
         <button class="btn btn-danger small" type="button" data-delete-support="${item.id}">삭제</button>
       </div>
     </div>
@@ -484,7 +513,17 @@ function renderSupportList() {
       setMessage(qs('#app-message'), '링크 복사에 실패했습니다.', 'error');
     }
   }));
-  qsa('[data-delete-support]').forEach((btn) => btn.addEventListener('click', () => removeItem('support', btn.dataset.deleteSupport)));
+  qsa('[data-edit-support]').forEach((btn) => btn.addEventListener('click', () => fillSupportForm(btn.dataset.editSupport)));
+  qsa('[data-delete-support]').forEach((btn) => btn.addEventListener('click', async () => {
+    if (!confirm('이 문의 항목을 삭제하시겠습니까?')) return;
+    try {
+      const res = await api.deleteSupportLink(state.sessionToken, btn.dataset.deleteSupport);
+      if (!res?.ok) throw new Error(res?.message || '고객센터 항목 삭제에 실패했습니다.');
+      await refreshSupportLinks();
+    } catch (err) {
+      setMessage(qs('#app-message'), err.message || '고객센터 항목 삭제에 실패했습니다.', 'error');
+    }
+  }));
 }
 
 function renderEventList() {
@@ -678,7 +717,7 @@ function paintApp() {
   qs('#auth-section').hidden = true;
   qs('#app-main').hidden = false;
   qs('#app-nav').hidden = false;
-  qs('#admin-name').textContent = state.bootstrap?.is_super_admin ? '슈퍼어드민' : (state.bootstrap?.profile?.full_name || '관리자');
+  qs('#admin-name').textContent = state.bootstrap?.profile?.full_name || state.bootstrap?.profile?.login_id || '관리자';
   renderStats();
   renderCourseTabs();
   renderOverview();
@@ -871,13 +910,15 @@ function bindForms() {
     e.preventDefault();
     try {
       const form = e.currentTarget;
-      const res = await api.saveSupportLink(state.sessionToken, {
-        id: state.editingSupportId || null,
-        course_id: state.selectedCourseId,
-        label: form.label.value.trim(),
-        url: form.url.value.trim(),
-        sort_order: form.sort_order.value.trim() || null
-      });
+      const res = state.editingSupportId
+        ? await api.updateSupportLink(state.sessionToken, state.editingSupportId, form.label.value.trim(), form.url.value.trim(), form.sort_order.value.trim() || null)
+        : await api.saveSupportLink(state.sessionToken, {
+            id: null,
+            course_id: state.selectedCourseId,
+            label: form.label.value.trim(),
+            url: form.url.value.trim(),
+            sort_order: form.sort_order.value.trim() || null
+          });
       if (!res?.ok) throw new Error(res?.message || '고객센터 저장에 실패했습니다.');
       resetSupportForm();
       await refreshSupportLinks();
