@@ -36,8 +36,61 @@ export const api = {
   saveAssignment(sessionToken, payload) { return rpc('app_admin_save_assignment', { p_session_token: sessionToken, p_item: payload }); },
   saveEvent(sessionToken, payload) { return rpc('app_admin_save_event', { p_session_token: sessionToken, p_item: payload }); },
   saveToken(sessionToken, payload) { return rpc('app_admin_save_token', { p_session_token: sessionToken, p_item: payload }); },
-  listSupportLinks(sessionToken, courseId) { return rpc('app_admin_list_support_links', { p_session_token: sessionToken, p_course_id: courseId }); },
-  saveSupportLink(sessionToken, payload) { return rpc('app_admin_save_support_link', { p_session_token: sessionToken, p_course_id: payload.course_id, p_title: payload.label || payload.title || '', p_url: payload.url || '', p_sort_order: payload.sort_order || 10 }); },
+  listSupportLinks(sessionToken, courseId) {
+    return rpc('app_admin_list_support_links', { p_session_token: sessionToken, p_course_id: courseId });
+  },
+  async saveSupportLink(sessionToken, payload) {
+    const data = await rpc('app_admin_save_support_link', {
+      p_session_token: sessionToken,
+      p_course_id: payload.course_id,
+      p_title: payload.label || payload.title || '',
+      p_url: payload.url || '',
+      p_sort_order: payload.sort_order || 10
+    });
+    return { ok: true, id: data };
+  },
+  async updateSupportLink(sessionToken, supportId, label, url, sortOrder, courseId = null) {
+    const tryCalls = [
+      () => rpc('app_admin_update_support_link', {
+        p_session_token: sessionToken,
+        p_course_id: courseId,
+        p_id: supportId,
+        p_title: label,
+        p_url: url,
+        p_sort_order: sortOrder || 10
+      }),
+      () => rpc('app_admin_update_support_link', {
+        p_session_token: sessionToken,
+        p_id: supportId,
+        p_title: label,
+        p_url: url,
+        p_sort_order: sortOrder || 10
+      }),
+      () => rpc('app_admin_update_support_link', {
+        p_session_token: sessionToken,
+        p_support_id: supportId,
+        p_label: label,
+        p_url: url,
+        p_sort_order: sortOrder || 10
+      })
+    ];
+    let lastErr;
+    for (const fn of tryCalls) {
+      try { await fn(); return { ok: true }; } catch (e) { lastErr = e; }
+    }
+    throw lastErr;
+  },
+  async deleteSupportLink(sessionToken, supportId) {
+    const tryCalls = [
+      () => rpc('app_admin_delete_support_link', { p_session_token: sessionToken, p_id: supportId }),
+      () => rpc('app_admin_delete_support_link', { p_session_token: sessionToken, p_support_id: supportId })
+    ];
+    let lastErr;
+    for (const fn of tryCalls) {
+      try { await fn(); return { ok: true }; } catch (e) { lastErr = e; }
+    }
+    throw lastErr;
+  },
   deleteItem(sessionToken, kind, id) { return rpc('app_admin_delete_item', { p_session_token: sessionToken, p_kind: kind, p_id: id }); },
   deleteMembership(sessionToken, courseId, profileId) { return rpc('app_admin_delete_membership', { p_session_token: sessionToken, p_course_id: courseId, p_profile_id: profileId }); },
   upsertMember(sessionToken, courseId, fullName, phone) {
@@ -72,41 +125,10 @@ export const api = {
       p_course_id: courseId || null
     });
   },
-
-  updateSupportLink(sessionToken, supportId, label, url, sortOrder) {
-    return rpc('app_admin_update_support_link', {
-      p_session_token: sessionToken,
-      p_id: supportId,
-      p_title: label,
-      p_url: url,
-      p_sort_order: sortOrder || 10
-    });
-  },
-  deleteSupportLink(sessionToken, supportId) {
-    return rpc('app_admin_delete_support_link', {
-      p_session_token: sessionToken,
-      p_id: supportId
-    });
-  },
   deleteProfile(sessionToken, profileId) {
     return rpc('app_admin_delete_profile', {
       p_session_token: sessionToken,
       p_profile_id: profileId
-    });
-  },
-  updateSupportLink(sessionToken, supportId, label, url, sortOrder) {
-    return rpc('app_admin_update_support_link', {
-      p_session_token: sessionToken,
-      p_support_id: supportId,
-      p_label: label,
-      p_url: url,
-      p_sort_order: sortOrder || null
-    });
-  },
-  deleteSupportLink(sessionToken, supportId) {
-    return rpc('app_admin_delete_support_link', {
-      p_session_token: sessionToken,
-      p_support_id: supportId
     });
   },
   signOut(sessionToken) { return rpc('app_sign_out', { p_session_token: sessionToken }); }

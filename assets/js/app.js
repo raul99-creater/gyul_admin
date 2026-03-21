@@ -1071,7 +1071,14 @@ function bindForms() {
     try {
       const form = e.currentTarget;
       const res = state.editingSupportId
-        ? await api.updateSupportLink(state.sessionToken, state.editingSupportId, form.label.value.trim(), form.url.value.trim(), form.sort_order.value.trim() || null)
+        ? await api.updateSupportLink(
+            state.sessionToken,
+            state.editingSupportId,
+            form.label.value.trim(),
+            form.url.value.trim(),
+            form.sort_order.value.trim() || null,
+            state.selectedCourseId
+          )
         : await api.saveSupportLink(state.sessionToken, {
             id: null,
             course_id: state.selectedCourseId,
@@ -1079,9 +1086,10 @@ function bindForms() {
             url: form.url.value.trim(),
             sort_order: form.sort_order.value.trim() || null
           });
-      if (!res?.ok) throw new Error(res?.message || '고객센터 저장에 실패했습니다.');
+      if (res?.ok === false) throw new Error(res?.message || '고객센터 저장에 실패했습니다.');
       resetSupportForm();
       await refreshSupportLinks();
+      setMessage(qs('#app-message'), state.editingSupportId ? '고객센터 항목을 수정했습니다.' : '고객센터 항목을 저장했습니다.');
     } catch (err) { const raw = String(err?.message || err || ''); const msg = raw.includes('app_admin_save_support_link') ? '고객센터 저장 함수가 아직 서버에 없습니다. 최신 SQL 패치를 실행한 뒤 다시 시도해주세요.' : (raw || '고객센터 저장에 실패했습니다.'); setMessage(qs('#app-message'), msg, 'error'); }
   });
 
