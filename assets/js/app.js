@@ -222,7 +222,7 @@ function fillSupportForm(id) {
   state.editingSupportId = id;
   const form = qs('#support-form');
   if (!form) return;
-  form.querySelector('[name="label"]').value = item.label || item.title || '';
+  form.querySelector('[name="label"]').value = (item.label || item.title || item.name || item.item || '').trim();
   form.querySelector('[name="url"]').value = item.url || '';
   form.querySelector('[name="sort_order"]').value = item.sort_order || '';
   openModal('support-modal');
@@ -493,7 +493,7 @@ function renderSupportList() {
   wrap.innerHTML = list.length ? list.map((item) => `
     <div class="support-link-card">
       <div class="meta">
-        <strong>${escapeHtml(item.label || item.title || item.name || item.item || '문의')}</strong>
+        <strong>${escapeHtml(item.label || item.title || '문의')}</strong>
         <small>${escapeHtml(item.url || '')}</small>
       </div>
       <div class="support-actions">
