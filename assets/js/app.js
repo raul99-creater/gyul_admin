@@ -222,7 +222,7 @@ function fillSupportForm(id) {
   state.editingSupportId = id;
   const form = qs('#support-form');
   if (!form) return;
-  form.querySelector('[name="label"]').value = item.label || item.title || '';
+  form.querySelector('[name="label"]').value = (item.label || item.title || item.name || item.item || '').trim();
   form.querySelector('[name="url"]').value = item.url || '';
   form.querySelector('[name="sort_order"]').value = item.sort_order || '';
   openModal('support-modal');
