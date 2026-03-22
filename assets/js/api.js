@@ -20,25 +20,6 @@ async function rpc(name, params = {}) {
 }
 
 
-
-function normalizeSupportItem(row) {
-  const label = (row?.label && String(row.label).trim())
-    || (row?.title && String(row.title).trim())
-    || (row?.name && String(row.name).trim())
-    || (row?.item && String(row.item).trim())
-    || '';
-  const url = (row?.url && String(row.url).trim())
-    || (row?.link && String(row.link).trim())
-    || (row?.openchat_url && String(row.openchat_url).trim())
-    || '';
-  return {
-    ...row,
-    label,
-    title: label,
-    url
-  };
-}
-
 async function supportTableSelect(courseId) {
   const supabase = await getSupabase();
   const { data, error } = await supabase
@@ -48,7 +29,12 @@ async function supportTableSelect(courseId) {
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data || []).map(normalizeSupportItem);
+  return (data || []).map((row) => ({
+    ...row,
+    label: row.label || row.title || row.name || row.item || '',
+    title: row.title || row.label || row.name || row.item || '',
+    url: row.url || row.link || row.openchat_url || ''
+  }));
 }
 
 async function supportTableInsert(payload) {

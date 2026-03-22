@@ -2,7 +2,7 @@
 create table if not exists public.course_support_links (
   id uuid primary key default gen_random_uuid(),
   course_id uuid not null references public.courses(id) on delete cascade,
-  label text not null default '문의하기',
+  label text,
   url text not null default '',
   sort_order integer not null default 100,
   is_active boolean not null default true,
@@ -33,7 +33,7 @@ begin
     insert into public.course_support_links(course_id, label, url, sort_order, is_active)
     values (
       v_course_id,
-      coalesce(nullif(trim(p_item->>'label'),''), '문의하기'),
+      nullif(trim(coalesce(p_item->>'label', p_item->>'title', p_item->>'name', p_item->>'item')), ''),
       coalesce(nullif(trim(p_item->>'url'),''), ''),
       coalesce(nullif(p_item->>'sort_order','')::integer, 100),
       true
@@ -41,7 +41,7 @@ begin
     returning * into v_row;
   else
     update public.course_support_links
-       set label = coalesce(nullif(trim(p_item->>'label'),''), '문의하기'),
+       set label = nullif(trim(coalesce(p_item->>'label', p_item->>'title', p_item->>'name', p_item->>'item')), ''),
            url = coalesce(nullif(trim(p_item->>'url'),''), url),
            sort_order = coalesce(nullif(p_item->>'sort_order','')::integer, sort_order),
            is_active = coalesce((p_item->>'is_active')::boolean, is_active),
