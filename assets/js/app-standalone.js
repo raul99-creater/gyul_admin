@@ -1,6 +1,298 @@
-import { APP_CONFIG } from './config.js';
-import { api } from './api.js';
-import { qs, qsa, escapeHtml, formatDateTime, formatDate, eventBucket, setMessage, saveSession, loadSession, clearSession, groupBy } from './utils.js';
+const APP_CONFIG = {
+  supabaseUrl: 'https://pxmiohzuqoztnhablbfy.supabase.co',
+  supabasePublishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4bWlvaHp1cW96dG5oYWJsYmZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NTEwNjQsImV4cCI6MjA4OTQyNzA2NH0.vK4ogWq0ksoa3NLFkJp-Z6ez7cszAoGXx68sipLgwC4',
+  siteName: '귤귤 일정관리',
+  sessionStorageKey: 'gyulgyul_admin_session_v1',
+  mainAppUrl: 'https://gyul-main.vercel.app'
+};
+
+function qs(sel, root = document) { return root.querySelector(sel); }
+function qsa(sel, root = document) { return [...root.querySelectorAll(sel)]; }
+function escapeHtml(v = '') { return String(v).replace(/[&<>\"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function phoneDigits(v = '') { return String(v).replace(/\D/g, ''); }
+function formatDateTime(v) {
+  if (!v) return '-';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return '-';
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function formatDate(v) {
+  if (!v) return '-';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return '-';
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+}
+function eventBucket(event) {
+  const now = new Date();
+  const openAt = event.registration_open_at ? new Date(event.registration_open_at) : null;
+  const closeAt = event.registration_close_at ? new Date(event.registration_close_at) : null;
+  if (openAt && openAt > now) return 'upcoming';
+  if (closeAt && closeAt < now) return 'closed';
+  if (event.status === 'closed') return 'closed';
+  return 'open';
+}
+function setMessage(el, message, type = 'ok') {
+  if (!el) return;
+  if (!message) { el.className = 'status-bar hidden'; el.textContent = ''; return; }
+  el.className = `status-bar ${type === 'error' ? 'err' : 'ok'}`;
+  el.textContent = message;
+}
+function saveSession(key, token) { localStorage.setItem(key, token); }
+function loadSession(key) { return localStorage.getItem(key) || ''; }
+function clearSession(key) { localStorage.removeItem(key); }
+function groupBy(list, keyFn) {
+  return list.reduce((acc, item) => {
+    const key = keyFn(item);
+    acc[key] = acc[key] || [];
+    acc[key].push(item);
+    return acc;
+  }, {});
+}
+function buildCalendar(events = []) {
+  const today = new Date();
+  const view = new Date(today.getFullYear(), today.getMonth(), 1);
+  const firstDay = new Date(view.getFullYear(), view.getMonth(), 1);
+  const lastDay = new Date(view.getFullYear(), view.getMonth()+1, 0);
+  const startWeekday = firstDay.getDay();
+  const days = [];
+  for (let i=0;i<startWeekday;i++) days.push(null);
+  for (let d=1; d<=lastDay.getDate(); d++) {
+    const date = new Date(view.getFullYear(), view.getMonth(), d);
+    const key = date.toISOString().slice(0,10);
+    days.push({
+      date,
+      key,
+      items: events.filter((item) => (item.starts_at || '').slice(0,10) === key).slice(0,3)
+    });
+  }
+  return { year: view.getFullYear(), month: view.getMonth()+1, days };
+}
+
+
+async function apiFetch(path, { method = 'GET', body = null, prefer = null } = {}) {
+  const headers = {
+    'apikey': APP_CONFIG.supabasePublishableKey,
+    'Authorization': `Bearer ${APP_CONFIG.supabasePublishableKey}`
+  };
+  if (body !== null) headers['Content-Type'] = 'application/json';
+  if (prefer) headers['Prefer'] = prefer;
+  const res = await fetch(`${APP_CONFIG.supabaseUrl}${path}`, {
+    method,
+    headers,
+    body: body === null ? undefined : JSON.stringify(body)
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!res.ok) {
+    const message = data?.message || data?.hint || data?.error_description || data?.error || text || `${res.status} ${res.statusText}`;
+    throw new Error(message);
+  }
+  return data;
+}
+
+async function rpc(name, params = {}) {
+  return apiFetch(`/rest/v1/rpc/${name}`, { method: 'POST', body: params || {} });
+}
+
+async function supportTableSelect(courseId) {
+  const qp = new URLSearchParams();
+  qp.set('select', '*');
+  if (courseId) qp.set('course_id', `eq.${courseId}`);
+  qp.set('order', 'sort_order.asc,created_at.desc');
+  const data = await apiFetch(`/rest/v1/course_support_links?${qp.toString()}`);
+  return (data || []).map((row) => ({
+    ...row,
+    label: row.label || row.title || row.name || row.item || '',
+    title: row.title || row.label || row.name || row.item || '',
+    url: row.url || row.link || row.openchat_url || ''
+  }));
+}
+
+async function supportTableInsert(payload) {
+  const row = {
+    course_id: payload.course_id,
+    title: payload.label || payload.title || '',
+    label: payload.label || payload.title || '',
+    url: payload.url || '',
+    sort_order: payload.sort_order || 10
+  };
+  const data = await apiFetch('/rest/v1/course_support_links?select=id', { method: 'POST', body: row, prefer: 'return=representation' });
+  return Array.isArray(data) ? data[0]?.id : data?.id;
+}
+
+async function supportTableUpdate(supportId, label, url, sortOrder, courseId = null) {
+  const qp = new URLSearchParams();
+  qp.set('id', `eq.${supportId}`);
+  if (courseId) qp.set('course_id', `eq.${courseId}`);
+  await apiFetch(`/rest/v1/course_support_links?${qp.toString()}`, {
+    method: 'PATCH',
+    body: { title: label, label, url, sort_order: sortOrder || 10 },
+    prefer: 'return=minimal'
+  });
+  return { ok: true };
+}
+
+async function supportTableDelete(supportId) {
+  const qp = new URLSearchParams();
+  qp.set('id', `eq.${supportId}`);
+  await apiFetch(`/rest/v1/course_support_links?${qp.toString()}`, { method: 'DELETE', prefer: 'return=minimal' });
+  return { ok: true };
+}
+
+const api = {
+  listCourses() { return rpc('app_public_list_courses'); },
+  signIn(login, secret) { return rpc('app_admin_sign_in', { p_login: login, p_secret: secret }); },
+  requestSignup(fullName, phone, requestedCourseId, memo) {
+    return rpc('app_admin_request_signup', {
+      p_full_name: fullName,
+      p_phone: phone,
+      p_requested_course_id: requestedCourseId || null,
+      p_memo: memo || ''
+    });
+  },
+  getBootstrap(sessionToken) { return rpc('app_admin_get_bootstrap', { p_session_token: sessionToken }); },
+  saveCourse(sessionToken, payload) { return rpc('app_admin_save_course', { p_session_token: sessionToken, p_course: payload }); },
+  saveSchedule(sessionToken, payload) { return rpc('app_admin_save_schedule', { p_session_token: sessionToken, p_item: payload }); },
+  saveAssignment(sessionToken, payload) { return rpc('app_admin_save_assignment', { p_session_token: sessionToken, p_item: payload }); },
+  saveEvent(sessionToken, payload) { return rpc('app_admin_save_event', { p_session_token: sessionToken, p_item: payload }); },
+  saveToken(sessionToken, payload) { return rpc('app_admin_save_token', { p_session_token: sessionToken, p_item: payload }); },
+  async listSupportLinks(sessionToken, courseId) {
+    const tryCalls = [
+      () => rpc('app_admin_list_support_links', { p_session_token: sessionToken, p_course_id: courseId }),
+      () => rpc('app_admin_list_support_links', { p_course_id: courseId, p_session_token: sessionToken }),
+      () => rpc('app_admin_list_support_links', { p_course_id: courseId }),
+      () => rpc('app_admin_list_support_links', courseId ? { course_id: courseId } : {}),
+      () => supportTableSelect(courseId)
+    ];
+    let lastErr;
+    for (const fn of tryCalls) {
+      try {
+        const data = await fn();
+        const rows = Array.isArray(data) ? data : (data?.items || data?.data || []);
+        return rows.map((row) => ({
+          ...row,
+          label: row.label || row.title || row.name || row.item || '',
+          title: row.title || row.label || row.name || row.item || '',
+          url: row.url || row.link || row.openchat_url || ''
+        }));
+      } catch (e) { lastErr = e; }
+    }
+    throw lastErr;
+  },
+  async saveSupportLink(sessionToken, payload) {
+    const tryCalls = [
+      () => rpc('app_admin_save_support_link', {
+        p_session_token: sessionToken,
+        p_course_id: payload.course_id,
+        p_title: payload.label || payload.title || '',
+        p_url: payload.url || '',
+        p_sort_order: payload.sort_order || 10
+      }),
+      () => rpc('app_admin_save_support_link', {
+        p_course_id: payload.course_id,
+        p_title: payload.label || payload.title || '',
+        p_url: payload.url || '',
+        p_sort_order: payload.sort_order || 10
+      }),
+      () => supportTableInsert(payload)
+    ];
+    let lastErr;
+    for (const fn of tryCalls) {
+      try {
+        const data = await fn();
+        return { ok: true, id: data?.id || data };
+      } catch (e) { lastErr = e; }
+    }
+    throw lastErr;
+  },
+  async updateSupportLink(sessionToken, supportId, label, url, sortOrder, courseId = null) {
+    const tryCalls = [
+      () => rpc('app_admin_update_support_link', {
+        p_session_token: sessionToken,
+        p_course_id: courseId,
+        p_id: supportId,
+        p_title: label,
+        p_url: url,
+        p_sort_order: sortOrder || 10
+      }),
+      () => rpc('app_admin_update_support_link', {
+        p_session_token: sessionToken,
+        p_id: supportId,
+        p_title: label,
+        p_url: url,
+        p_sort_order: sortOrder || 10
+      }),
+      () => rpc('app_admin_update_support_link', {
+        p_support_id: supportId,
+        p_label: label,
+        p_url: url,
+        p_sort_order: sortOrder || 10
+      }),
+      () => supportTableUpdate(supportId, label, url, sortOrder, courseId)
+    ];
+    let lastErr;
+    for (const fn of tryCalls) {
+      try { await fn(); return { ok: true }; } catch (e) { lastErr = e; }
+    }
+    throw lastErr;
+  },
+  async deleteSupportLink(sessionToken, supportId) {
+    const tryCalls = [
+      () => rpc('app_admin_delete_support_link', { p_session_token: sessionToken, p_id: supportId }),
+      () => rpc('app_admin_delete_support_link', { p_session_token: sessionToken, p_support_id: supportId }),
+      () => rpc('app_admin_delete_support_link', { p_id: supportId }),
+      () => supportTableDelete(supportId)
+    ];
+    let lastErr;
+    for (const fn of tryCalls) {
+      try { await fn(); return { ok: true }; } catch (e) { lastErr = e; }
+    }
+    throw lastErr;
+  },
+  deleteItem(sessionToken, kind, id) { return rpc('app_admin_delete_item', { p_session_token: sessionToken, p_kind: kind, p_id: id }); },
+  deleteMembership(sessionToken, courseId, profileId) { return rpc('app_admin_delete_membership', { p_session_token: sessionToken, p_course_id: courseId, p_profile_id: profileId }); },
+  upsertMember(sessionToken, courseId, fullName, phone) {
+    return rpc('app_admin_upsert_member', {
+      p_session_token: sessionToken,
+      p_course_id: courseId,
+      p_full_name: fullName,
+      p_phone: phone
+    });
+  },
+  assignRole(sessionToken, profileId, roleType, courseId) {
+    return rpc('app_admin_assign_role', {
+      p_session_token: sessionToken,
+      p_profile_id: profileId,
+      p_role_type: roleType,
+      p_course_id: courseId || null
+    });
+  },
+  resolveRequest(sessionToken, requestId, status, courseId) {
+    return rpc('app_admin_resolve_request', {
+      p_session_token: sessionToken,
+      p_request_id: requestId,
+      p_status: status,
+      p_course_id: courseId || null
+    });
+  },
+  deleteRole(sessionToken, profileId, roleType, courseId) {
+    return rpc('app_admin_delete_role', {
+      p_session_token: sessionToken,
+      p_profile_id: profileId,
+      p_role_type: roleType,
+      p_course_id: courseId || null
+    });
+  },
+  deleteProfile(sessionToken, profileId) {
+    return rpc('app_admin_delete_profile', {
+      p_session_token: sessionToken,
+      p_profile_id: profileId
+    });
+  },
+  signOut(sessionToken) { return rpc('app_sign_out', { p_session_token: sessionToken }); }
+};
+
 
 const sessionKey = APP_CONFIG.sessionStorageKey;
 const sidebarKey = `${APP_CONFIG.sessionStorageKey}:sidebarCollapsed`;
@@ -24,6 +316,17 @@ const state = {
 function ensureTitle() {
   document.title = APP_CONFIG.siteName;
   qsa('[data-site-name]').forEach((el) => { el.textContent = APP_CONFIG.siteName; });
+}
+
+
+function applyLoginQueryParams() {
+  const params = new URLSearchParams(window.location.search);
+  const login = params.get('login') || '';
+  const secret = params.get('secret') || '';
+  const form = qs('#admin-login-form');
+  if (!form) return;
+  if (login) form.querySelector('[name="login"]').value = login;
+  if (secret) form.querySelector('[name="secret"]').value = secret;
 }
 
 function mapAuthError(err) {
@@ -893,8 +1196,8 @@ function paintApp() {
 
 async function refreshBootstrap() {
   const res = await api.getBootstrap(state.sessionToken);
-  if (!res?.ok) throw new Error(res?.message || '데이터를 불러오지 못했습니다.');
-  state.bootstrap = res;
+  if (res?.ok === false) throw new Error(res?.message || '데이터를 불러오지 못했습니다.');
+  state.bootstrap = res?.data || res;
   const courseIds = (res.courses || []).map((course) => course.id);
   if (!courseIds.includes(state.selectedCourseId)) state.selectedCourseId = courseIds[0] || '';
   paintApp();
@@ -941,8 +1244,9 @@ async function initAuth() {
     const secret = loginForm.querySelector('[name="secret"]').value.trim();
     try {
       const res = await api.signIn(login, secret);
-      if (!res?.ok) throw new Error(res?.message || '로그인에 실패했습니다.');
-      state.sessionToken = res.session_token;
+      if (res?.ok === false) throw new Error(res?.message || '로그인에 실패했습니다.');
+      state.sessionToken = res?.session_token || res?.sessionToken || res?.token || '';
+      if (!state.sessionToken) throw new Error(res?.message || '세션 토큰이 없습니다.');
       saveSession(sessionKey, state.sessionToken);
       await refreshBootstrap();
     } catch (err) {
@@ -1140,6 +1444,7 @@ async function init() {
   ensureTitle();
   bindForms();
   await initAuth();
+  applyLoginQueryParams();
   const saved = loadSession(sessionKey);
   if (saved) {
     try {
@@ -1152,4 +1457,11 @@ async function init() {
   resetEventBuilder([]);
 }
 
-init();
+init().catch((err) => {
+  const el = document.querySelector('#login-message');
+  if (el) {
+    el.className = 'status-bar err';
+    el.textContent = '초기화 오류: ' + (err?.message || err || '알 수 없는 오류');
+  }
+  console.error(err);
+});
