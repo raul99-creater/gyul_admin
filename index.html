@@ -208,8 +208,13 @@
   </div>
 
   <div class="modal" id="members-modal" hidden>
-    <div class="modal-card response-modal-card">
-      <div class="card-header modal-head"><div><h3 id="members-modal-title">회원 명단</h3><p class="muted" id="members-modal-subtitle"></p></div><div class="row"><button class="btn btn-secondary small" id="export-members-btn" type="button">엑셀 다운로드</button><button class="btn btn-secondary small" id="close-members-modal" type="button">닫기</button></div></div>
+    <div class="modal-card response-modal-card wide">
+      <div class="card-header modal-head"><div><h3 id="members-modal-title">회원 관리</h3><p class="muted" id="members-modal-subtitle"></p></div><div class="row"><button class="btn btn-primary small" id="open-member-add-modal" type="button">회원 추가</button><button class="btn btn-secondary small" id="open-room-assign-modal" type="button">방 배정</button><button class="btn btn-secondary small" id="export-members-btn" type="button">엑셀 다운로드</button><button class="btn btn-secondary small" id="close-members-modal" type="button">닫기</button></div></div>
+      <div class="status-bar hidden modal-message" id="members-modal-message"></div>
+      <div class="inline-form compact-grid" style="margin-bottom:12px">
+        <div class="field"><label>검색</label><input class="input" id="member-search" placeholder="이름 또는 전화번호" /></div>
+        <div class="field"><label>방번호</label><input class="input" id="member-room-filter" placeholder="예: 1번방" /></div>
+      </div>
       <div class="table-wrap" id="members-modal-table"></div>
     </div>
   </div>
@@ -239,6 +244,80 @@
         </div>
         <button class="btn btn-primary" type="submit">회원 저장</button>
       </form>
+    </div>
+  </div>
+
+
+  <div class="modal" id="room-assign-modal" hidden>
+    <div class="modal-card feature-modal-card">
+      <div class="card-header modal-head"><div><h3>방 배정</h3><p class="muted">이름 가나다순으로 자동 배정하거나 전화번호로 수동 배정합니다.</p></div><button class="btn btn-secondary small" data-close-modal="room-assign-modal" type="button">닫기</button></div>
+      <div class="status-bar hidden modal-message" id="room-assign-modal-message"></div>
+      <section class="card modal-inner-card">
+        <div class="inline-form inline-2">
+          <div class="field"><label>방당 인원수</label><input class="input" id="room-size" type="number" min="1" value="30" /></div>
+          <div class="field"><label>기준</label><input class="input" value="이름 가나다순" disabled /></div>
+        </div>
+        <div class="row" style="margin-top:12px"><button class="btn btn-primary small" id="run-room-assign-btn" type="button">자동 일괄 배정</button><button class="btn btn-secondary small" id="reset-room-assign-btn" type="button">방번호 초기화</button></div>
+        <div id="room-assign-preview" style="margin-top:12px"></div>
+        <div class="inline-form inline-2" style="margin-top:12px">
+          <div class="field"><label>지정할 방번호</label><input class="input" id="manual-room-target" placeholder="예: 3번방" value="1번방" /></div>
+          <div class="field"><label>전화번호 목록</label><textarea class="textarea" id="manual-room-phones" placeholder="01012341111&#10;01012342222"></textarea></div>
+        </div>
+        <div class="row" style="margin-top:12px"><button class="btn btn-primary small" id="run-manual-room-assign-btn" type="button">전화번호로 배정</button></div>
+        <div id="manual-room-assign-result" style="margin-top:12px"></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal" id="payment-modal" hidden>
+    <div class="modal-card feature-modal-card wide">
+      <div class="card-header modal-head"><div><h3>수강생 대조</h3><p class="muted">A열 이름 / B열 전화번호 기준으로 엑셀 명단과 가입자를 대조합니다.</p></div><button class="btn btn-secondary small" data-close-modal="payment-modal" type="button">닫기</button></div>
+      <div class="status-bar hidden modal-message" id="payment-modal-message"></div>
+      <section class="card modal-inner-card">
+        <div class="inline-form inline-2"><div class="field"><label>명단 파일</label><input class="input" id="payment-file" type="file" accept=".xlsx,.xls,.csv" /></div></div>
+        <div class="row" style="margin-top:12px"><button class="btn btn-primary small" id="run-payment-compare-btn" type="button">대조 실행</button></div>
+        <div id="payment-summary-box" style="margin-top:12px"></div>
+        <div id="payment-compare-result"></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal" id="room-check-modal" hidden>
+    <div class="modal-card feature-modal-card wide">
+      <div class="card-header modal-head"><div><h3>방 입장 체크</h3><p class="muted">배정된 방 명단과 카톡/줌 로그 파일을 비교합니다.</p></div><button class="btn btn-secondary small" data-close-modal="room-check-modal" type="button">닫기</button></div>
+      <div class="status-bar hidden modal-message" id="room-check-modal-message"></div>
+      <section class="card modal-inner-card">
+        <div class="inline-form inline-2">
+          <div class="field"><label>확인할 방</label><select class="select" id="room-check-room"></select></div>
+          <div class="field"><label>입장 로그 파일</label><input class="input" id="room-check-file" type="file" accept=".txt,.csv,.xlsx,.xls" /></div>
+        </div>
+        <div class="row" style="margin-top:12px"><button class="btn btn-primary small" id="run-room-file-check-btn" type="button">입장 여부 확인</button></div>
+        <div id="room-check-summary" style="margin-top:12px"></div>
+        <div id="room-check-result"></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal" id="qr-modal" hidden>
+    <div class="modal-card feature-modal-card wide">
+      <div class="card-header modal-head"><div><h3 id="qr-title">QR 출석</h3><p class="muted" id="qr-subtitle"></p></div><button class="btn btn-secondary small" data-close-modal="qr-modal" type="button">닫기</button></div>
+      <div class="status-bar hidden modal-message" id="qr-modal-message"></div>
+      <section class="card modal-inner-card">
+        <div class="inline-form inline-2">
+          <div class="field"><label>체크인 링크</label><input class="input" id="qr-checkin-url" readonly /></div>
+          <div class="field"><label>&nbsp;</label><div class="row"><button class="btn btn-secondary" id="copy-qr-link-btn" type="button">링크 복사</button><button class="btn btn-primary" id="open-qr-link-btn" type="button">링크 열기</button></div></div>
+        </div>
+        <div id="qr-grid" class="qr-grid" style="margin-top:12px"></div>
+        <div id="attendance-table-wrap" style="margin-top:16px"></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal" id="log-modal" hidden>
+    <div class="modal-card feature-modal-card wide">
+      <div class="card-header modal-head"><div><h3>활동 로그</h3><p class="muted">선택한 강의 기준 최근 작업 내역입니다.</p></div><button class="btn btn-secondary small" data-close-modal="log-modal" type="button">닫기</button></div>
+      <div class="status-bar hidden modal-message" id="log-modal-message"></div>
+      <section class="card modal-inner-card"><div id="log-table-wrap"></div></section>
     </div>
   </div>
 
