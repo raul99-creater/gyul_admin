@@ -230,3 +230,98 @@ export const api = {
   },
   signOut(sessionToken) { return rpc('app_sign_out', { p_session_token: sessionToken }); }
 };
+
+
+api.listMembershipMeta = async function(courseId) {
+  if (!courseId) return [];
+  const supabase = await getSupabase();
+  const { data, error } = await supabase
+    .from('course_memberships')
+    .select('id, course_id, profile_id, member_role, created_at, room_no, memo')
+    .eq('course_id', courseId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data || [];
+};
+
+api.updateMembershipMeta = async function(membershipId, payload = {}) {
+  const supabase = await getSupabase();
+  const patch = {};
+  if (Object.prototype.hasOwnProperty.call(payload, 'room_no')) patch.room_no = payload.room_no || '';
+  if (Object.prototype.hasOwnProperty.call(payload, 'memo')) patch.memo = payload.memo || '';
+  const { data, error } = await supabase
+    .from('course_memberships')
+    .update(patch)
+    .eq('id', membershipId)
+    .select('id, room_no, memo')
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+api.listAttendance = async function(eventIds = []) {
+  if (!Array.isArray(eventIds) || !eventIds.length) return [];
+  const supabase = await getSupabase();
+  const { data, error } = await supabase
+    .from('event_attendance')
+    .select('*')
+    .in('event_id', eventIds)
+    .order('checked_in_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+
+api.markAttendance = async function(eventId, profileId, method = 'admin_manual') {
+  const supabase = await getSupabase();
+  const payload = {
+    event_id: eventId,
+    profile_id: profileId,
+    checked_in_at: new Date().toISOString(),
+    method: method || 'admin_manual'
+  };
+  const { data, error } = await supabase
+    .from('event_attendance')
+    .upsert(payload, { onConflict: 'event_id,profile_id' })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+api.cancelAttendance = async function(attendanceId) {
+  const supabase = await getSupabase();
+  const { error } = await supabase
+    .from('event_attendance')
+    .delete()
+    .eq('id', attendanceId);
+  if (error) throw error;
+  return { ok: true };
+};
+
+api.listActivityLogs = async function(courseId = null) {
+  const supabase = await getSupabase();
+  let query = supabase
+    .from('admin_activity_logs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(300);
+  if (courseId) query = query.eq('course_id', courseId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+};
+
+api.addActivityLog = async function(action, detail = {}, courseId = null, profileId = null, actor = '') {
+  const supabase = await getSupabase();
+  const { error } = await supabase
+    .from('admin_activity_logs')
+    .insert({
+      action,
+      detail,
+      course_id: courseId || null,
+      profile_id: profileId || null,
+      actor: actor || ''
+    });
+  if (error) throw error;
+  return { ok: true };
+};

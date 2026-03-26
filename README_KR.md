@@ -14,3 +14,8 @@
 
 주의:
 - main/admin은 별도 레포 / 별도 Vercel 프로젝트로 올리되, 같은 Supabase 프로젝트를 공유합니다.
+
+
+추가 패치:
+- local-demo 운영기능(방번호/메모, QR 출석, 수강생 대조, 활동로그)을 쓰려면
+  `supabase/gyulgyul_localdemo_feature_patch.sql` 도 추가 실행하세요.
