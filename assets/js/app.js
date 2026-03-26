@@ -944,10 +944,12 @@ async function initAuth() {
     const secret = loginForm.querySelector('[name="secret"]').value.trim();
     try {
       const res = await api.signIn(login, secret);
-      if (!res?.ok) throw new Error(res?.message || '로그인에 실패했습니다.');
-      state.sessionToken = res.session_token;
+      if (!res || res.ok === false) throw new Error(res?.message || '로그인에 실패했습니다.');
+      const sessionToken = res.session_token || res.sessionToken || res.token || '';
+      if (!sessionToken) throw new Error('로그인 세션을 받지 못했습니다. 서버 RPC 응답을 확인해주세요.');
+      state.sessionToken = sessionToken;
       saveSession(sessionKey, state.sessionToken);
-      await refreshBootstrap();
+      await refreshBootstrap({ allowShellFallback: true, loginLabel: login, isSuper: !!res.is_super_admin });
     } catch (err) {
       setMessage(loginMsg, mapAuthError(err), 'error');
     }
@@ -1652,11 +1654,51 @@ function renderLogs() {
   const rows = state.logs || [];
   wrap.innerHTML = rows.length ? `<div class="table-wrap"><table><thead><tr><th>시각</th><th>작업</th><th>작업자</th><th>상세</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${formatDateTime(row.created_at)}</td><td>${escapeHtml(row.action || '')}</td><td>${escapeHtml(row.actor || '')}</td><td><code>${escapeHtml(JSON.stringify(row.detail || {}))}</code></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty-state">활동 로그가 없습니다.</div>';
 }
-async function refreshBootstrap() {
+function buildFallbackBootstrap(loginLabel = '', isSuper = false) {
+  return {
+    ok: true,
+    profile: { full_name: loginLabel || '관리자', login_id: loginLabel || 'admin' },
+    is_super_admin: !!isSuper,
+    courses: [],
+    memberships: [],
+    schedule: [],
+    events: [],
+    assignments: [],
+    tokens: [],
+    roles: [],
+    requests: [],
+    profiles: [],
+    applications: []
+  };
+}
+
+async function refreshBootstrap(options = {}) {
+  const { allowShellFallback = false, loginLabel = '', isSuper = false } = options;
   const res = await api.getBootstrap(state.sessionToken);
-  if (!res?.ok) throw new Error(res?.message || '데이터를 불러오지 못했습니다.');
-  state.bootstrap = res;
-  const courseIds = (res.courses || []).map((course) => course.id);
+  if (!res || res.ok === false) {
+    if (!allowShellFallback) throw new Error(res?.message || '데이터를 불러오지 못했습니다.');
+    state.bootstrap = buildFallbackBootstrap(loginLabel, isSuper);
+    paintApp();
+    setMessage(qs('#app-message'), '로그인은 완료됐지만 관리자 데이터를 불러오지 못했습니다. SQL 패치와 RPC 응답을 확인해주세요.', 'error');
+    return;
+  }
+  state.bootstrap = {
+    ok: true,
+    ...buildFallbackBootstrap(loginLabel, isSuper),
+    ...res,
+    profile: res.profile || buildFallbackBootstrap(loginLabel, isSuper).profile,
+    courses: Array.isArray(res.courses) ? res.courses : [],
+    memberships: Array.isArray(res.memberships) ? res.memberships : [],
+    schedule: Array.isArray(res.schedule) ? res.schedule : [],
+    events: Array.isArray(res.events) ? res.events : [],
+    assignments: Array.isArray(res.assignments) ? res.assignments : [],
+    tokens: Array.isArray(res.tokens) ? res.tokens : [],
+    roles: Array.isArray(res.roles) ? res.roles : [],
+    requests: Array.isArray(res.requests) ? res.requests : [],
+    profiles: Array.isArray(res.profiles) ? res.profiles : [],
+    applications: Array.isArray(res.applications) ? res.applications : []
+  };
+  const courseIds = (state.bootstrap.courses || []).map((course) => course.id);
   if (!courseIds.includes(state.selectedCourseId)) state.selectedCourseId = courseIds[0] || '';
   await hydrateSelectedCourseArtifacts();
   paintApp();
